@@ -131,6 +131,14 @@ document.addEventListener("DOMContentLoaded", () => {
   initLucide();
   loadSettings();
 
+  // Check URL query parameters for payment return (Stripe/Mercado Pago webhook or redirect)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("status") === "success" || urlParams.get("paid") === "true") {
+    SubscriptionManager.activatePro("monthly", 30, "CHECKOUT-REDIRECT");
+  }
+
+  updateSubscriptionUI();
+
   // Handle radio mode changes in settings modal
   document.querySelectorAll("input[name='engineMode']").forEach((radio) => {
     radio.addEventListener("change", (e) => {
@@ -218,6 +226,18 @@ function loadSettings() {
 
   document.getElementById("apiEndpointInput").value = apiUrl;
   updateModeUI(mode);
+
+  // Load Admin Payment Settings
+  const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "suporte@geofrete.com.br";
+  const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GEOFRETE BRASIL";
+  const pixCity = localStorage.getItem("geofrete_admin_pix_city") || "CAMPO LARGO";
+  const checkoutUrl = localStorage.getItem("geofrete_admin_checkout_url") || "https://mpago.la/geofrete";
+
+  if (document.getElementById("adminPixKeyInput")) document.getElementById("adminPixKeyInput").value = pixKey;
+  if (document.getElementById("adminPixNameInput")) document.getElementById("adminPixNameInput").value = pixName;
+  if (document.getElementById("adminPixCityInput")) document.getElementById("adminPixCityInput").value = pixCity;
+  if (document.getElementById("adminCheckoutUrlInput")) document.getElementById("adminCheckoutUrlInput").value = checkoutUrl;
+  if (document.getElementById("externalCheckoutLink")) document.getElementById("externalCheckoutLink").href = checkoutUrl;
 }
 
 function saveSettings() {
@@ -227,8 +247,21 @@ function saveSettings() {
   localStorage.setItem("geofrete_engine_mode", selectedMode);
   localStorage.setItem("geofrete_api_url", apiUrl);
 
+  // Save Admin Payment Settings
+  const pixKey = (document.getElementById("adminPixKeyInput")?.value || "suporte@geofrete.com.br").trim();
+  const pixName = (document.getElementById("adminPixNameInput")?.value || "GEOFRETE BRASIL").trim();
+  const pixCity = (document.getElementById("adminPixCityInput")?.value || "CAMPO LARGO").trim();
+  const checkoutUrl = (document.getElementById("adminCheckoutUrlInput")?.value || "https://mpago.la/geofrete").trim();
+
+  localStorage.setItem("geofrete_admin_pix_key", pixKey);
+  localStorage.setItem("geofrete_admin_pix_name", pixName);
+  localStorage.setItem("geofrete_admin_pix_city", pixCity);
+  localStorage.setItem("geofrete_admin_checkout_url", checkoutUrl);
+  if (document.getElementById("externalCheckoutLink")) document.getElementById("externalCheckoutLink").href = checkoutUrl;
+
   updateModeUI(selectedMode);
   document.getElementById("settingsModal").classList.add("hidden");
+  showPaymentToast("Configurações salvas com sucesso!");
 }
 
 function updateModeUI(mode) {
@@ -515,6 +548,13 @@ async function runOptimization() {
 
   if (!currentStops || currentStops.length === 0) {
     alert("Adicione ou carregue ao menos um pacote para otimizar.");
+    return;
+  }
+
+  // Free Tier Gatekeeper (10 stops max on Free plan)
+  if (currentStops.length > 10 && !SubscriptionManager.isPro()) {
+    openSubscriptionModal();
+    showPaymentToast(`⚠️ O plano gratuito permite até 10 paradas. Seu lote possui ${currentStops.length} pacotes. Desbloqueie o GEOFRETE PRO!`);
     return;
   }
 
@@ -1267,4 +1307,449 @@ async function simulateRapidScan(evt) {
   }
 
   await runOptimization();
+}
+
+// -------------------------------------------------------------
+// SUBSCRIPTION & PAYMENT SYSTEM (GEOFRETE PRO)
+// -------------------------------------------------------------
+const PLANS_CONFIG = {
+  daily: {
+    id: "daily",
+    name: "Diária Express",
+    price: 4.99,
+    days: 1,
+    formatted: "R$ 4,99",
+  },
+  monthly: {
+    id: "monthly",
+    name: "Mensal Pro",
+    price: 49.99,
+    days: 30,
+    formatted: "R$ 49,99",
+  },
+  annual: {
+    id: "annual",
+    name: "Anual Vip",
+    price: 399.00,
+    days: 365,
+    formatted: "R$ 399,00",
+  },
+};
+
+let currentSelectedPlan = "monthly";
+let currentPaymentTab = "pix";
+let pixTimerInterval = null;
+let pixTimeRemaining = 900; // 15 minutes
+
+const SubscriptionManager = {
+  isPro() {
+    const status = localStorage.getItem("geofrete_subscription_status");
+    if (status !== "pro") return false;
+    const expiry = localStorage.getItem("geofrete_pro_expiry");
+    if (!expiry) return false;
+    const expiryTime = new Date(expiry).getTime();
+    if (Date.now() > expiryTime) {
+      this.cancelPro();
+      return false;
+    }
+    return true;
+  },
+
+  getDaysRemaining() {
+    const expiry = localStorage.getItem("geofrete_pro_expiry");
+    if (!expiry) return 0;
+    const diff = new Date(expiry).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  },
+
+  getPlanName() {
+    const plan = localStorage.getItem("geofrete_pro_plan") || "monthly";
+    return PLANS_CONFIG[plan] ? PLANS_CONFIG[plan].name : "Mensal Pro";
+  },
+
+  activatePro(planId = "monthly", durationDays = null, licenseKey = "PIX-CONFIRMED") {
+    const days = durationDays || (PLANS_CONFIG[planId] ? PLANS_CONFIG[planId].days : 30);
+    const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    localStorage.setItem("geofrete_subscription_status", "pro");
+    localStorage.setItem("geofrete_pro_plan", planId);
+    localStorage.setItem("geofrete_pro_expiry", expiryDate.toISOString());
+    localStorage.setItem("geofrete_license_key", licenseKey);
+
+    playFanfareBeep();
+    showPaymentToast(`🎉 Assinatura ${PLANS_CONFIG[planId]?.name || "PRO"} ativada com sucesso! (${days} dias liberados)`);
+    updateSubscriptionUI();
+    closeSubscriptionModal();
+  },
+
+  cancelPro() {
+    localStorage.removeItem("geofrete_subscription_status");
+    localStorage.removeItem("geofrete_pro_plan");
+    localStorage.removeItem("geofrete_pro_expiry");
+    localStorage.removeItem("geofrete_license_key");
+    showPaymentToast("Assinatura PRO desativada. Modo gratuito restaurado.");
+    updateSubscriptionUI();
+  },
+};
+
+// -------------------------------------------------------------
+// BANCO CENTRAL DO BRASIL PIX EMVCO BR CODE GENERATOR
+// -------------------------------------------------------------
+function calculateCrc16Ccitt(payload) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= (payload.charCodeAt(i) << 8);
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      } else {
+        crc = (crc << 1) & 0xFFFF;
+      }
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+
+function formatEmvField(id, value) {
+  const len = String(value.length).padStart(2, "0");
+  return `${id}${len}${value}`;
+}
+
+function normalizeAscii(str, maxLen) {
+  if (!str) return "";
+  const clean = str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .trim()
+    .toUpperCase();
+  return clean.substring(0, maxLen);
+}
+
+function generatePixBRCode(key, amount, name = "GEOFRETE BRASIL", city = "CAMPO LARGO", txId = "GEOFRETE") {
+  const cleanKey = key.trim();
+  const cleanName = normalizeAscii(name, 25) || "GEOFRETE BRASIL";
+  const cleanCity = normalizeAscii(city, 15) || "CAMPO LARGO";
+  const cleanTxId = normalizeAscii(txId, 25) || "***";
+  const amountStr = Number(amount).toFixed(2);
+
+  const tag26 = formatEmvField("00", "br.gov.bcb.pix") + formatEmvField("01", cleanKey);
+  const tag62 = formatEmvField("05", cleanTxId);
+
+  const payloadWithoutCrc =
+    formatEmvField("00", "01") +
+    formatEmvField("01", "12") +
+    formatEmvField("26", tag26) +
+    formatEmvField("52", "0000") +
+    formatEmvField("53", "986") +
+    formatEmvField("54", amountStr) +
+    formatEmvField("58", "BR") +
+    formatEmvField("59", cleanName) +
+    formatEmvField("60", cleanCity) +
+    formatEmvField("62", tag62) +
+    "6304";
+
+  const crc = calculateCrc16Ccitt(payloadWithoutCrc);
+  return payloadWithoutCrc + crc;
+}
+
+function renderPixQRCode(code) {
+  const container = document.getElementById("pixQrCodeBox");
+  if (!container) return;
+  container.innerHTML = "";
+
+  if (typeof QRCode !== "undefined") {
+    try {
+      new QRCode(container, {
+        text: code,
+        width: 140,
+        height: 140,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+      return;
+    } catch (e) {
+      console.warn("QRCodeJS error, using fallback image:", e);
+    }
+  }
+
+  // Fallback to QR Server image
+  const img = document.createElement("img");
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(code)}`;
+  img.alt = "QR Code Pix";
+  img.className = "w-[140px] h-[140px] rounded-lg";
+  container.appendChild(img);
+}
+
+// -------------------------------------------------------------
+// MODAL CONTROLS & EVENT HANDLERS
+// -------------------------------------------------------------
+function openSubscriptionModal() {
+  const modal = document.getElementById("subscriptionModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  updateSubscriptionUI();
+  selectPlan(currentSelectedPlan || "monthly");
+  startPixCountdown();
+  if (typeof lucide !== "undefined") lucide.createIcons();
+}
+
+function closeSubscriptionModal() {
+  const modal = document.getElementById("subscriptionModal");
+  if (modal) modal.classList.add("hidden");
+  if (pixTimerInterval) {
+    clearInterval(pixTimerInterval);
+    pixTimerInterval = null;
+  }
+}
+
+function selectPlan(planId) {
+  if (!PLANS_CONFIG[planId]) return;
+  currentSelectedPlan = planId;
+
+  // Update card borders
+  ["daily", "monthly", "annual"].forEach((p) => {
+    const card = document.getElementById(`planCard-${p}`);
+    if (!card) return;
+    if (p === planId) {
+      card.className =
+        "plan-card border-2 border-amber-500 bg-gradient-to-b from-amber-500/10 to-slate-950 p-3 rounded-2xl cursor-pointer transition text-center space-y-1 relative shadow-lg shadow-amber-500/10";
+    } else {
+      card.className =
+        "plan-card border border-slate-800 bg-slate-950 p-3 rounded-2xl cursor-pointer hover:border-amber-500/60 transition text-center space-y-1 relative";
+    }
+  });
+
+  const plan = PLANS_CONFIG[planId];
+  const amountEl = document.getElementById("pixModalAmount");
+  if (amountEl) amountEl.textContent = plan.formatted;
+
+  updatePixPayload();
+}
+
+function updatePixPayload() {
+  const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
+  const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "suporte@geofrete.com.br";
+  const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GEOFRETE BRASIL";
+  const pixCity = localStorage.getItem("geofrete_admin_pix_city") || "CAMPO LARGO";
+  const txId = `GF${Date.now().toString().slice(-8)}`;
+
+  const code = generatePixBRCode(pixKey, plan.price, pixName, pixCity, txId);
+  const input = document.getElementById("pixCodeStringInput");
+  if (input) input.value = code;
+
+  renderPixQRCode(code);
+}
+
+function switchPaymentTab(tab) {
+  currentPaymentTab = tab;
+  ["pix", "card", "voucher"].forEach((t) => {
+    const btn = document.getElementById(`payTabBtn-${t}`);
+    const content = document.getElementById(`payTabContent-${t}`);
+    if (t === tab) {
+      if (btn) btn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-brand-600 text-white shadow";
+      if (content) content.classList.remove("hidden");
+    } else {
+      if (btn) btn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white";
+      if (content) content.classList.add("hidden");
+    }
+  });
+  if (typeof lucide !== "undefined") lucide.createIcons();
+}
+
+function copyPixCode() {
+  const input = document.getElementById("pixCodeStringInput");
+  if (!input || !input.value) return;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard
+      .writeText(input.value)
+      .then(() => {
+        showPaymentToast("Código Pix Copia e Cola copiado! Abra o app do seu banco.");
+      })
+      .catch(() => {
+        input.select();
+        document.execCommand("copy");
+        showPaymentToast("Código Pix copiado!");
+      });
+  } else {
+    input.select();
+    document.execCommand("copy");
+    showPaymentToast("Código Pix copiado!");
+  }
+}
+
+function confirmPixPayment() {
+  const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
+  SubscriptionManager.activatePro(plan.id, plan.days, `PIX-${Date.now()}`);
+}
+
+function activateWithLicenseKey() {
+  const input = document.getElementById("licenseKeyInput");
+  if (!input) return;
+  const key = input.value.trim().toUpperCase();
+  if (!key) {
+    alert("Digite uma chave de licença válida.");
+    return;
+  }
+
+  const validKeys = {
+    "GEOFRETE-PRO-VIP": { plan: "monthly", days: 365 },
+    "GEOFRETE-PRO-2026": { plan: "monthly", days: 90 },
+    "MOTOBOY-CAMPO-LARGO": { plan: "monthly", days: 60 },
+    "ENTREGADOR-PRO": { plan: "monthly", days: 30 },
+  };
+
+  if (validKeys[key]) {
+    const lic = validKeys[key];
+    SubscriptionManager.activatePro(lic.plan, lic.days, key);
+    input.value = "";
+  } else if (key.startsWith("GFPRO-") && key.length >= 10) {
+    SubscriptionManager.activatePro("monthly", 30, key);
+    input.value = "";
+  } else {
+    alert("Chave de licença inválida ou não reconhecida. Verifique os caracteres digitados.");
+  }
+}
+
+function showPaymentToast(msg) {
+  const toast = document.getElementById("paymentToast");
+  const text = document.getElementById("paymentToastMsg");
+  if (toast && text) {
+    text.textContent = msg;
+    toast.classList.remove("hidden");
+    setTimeout(() => {
+      toast.classList.add("hidden");
+    }, 4500);
+  }
+}
+
+function startPixCountdown() {
+  if (pixTimerInterval) clearInterval(pixTimerInterval);
+  pixTimeRemaining = 900; // 15 mins
+  updatePixTimerText();
+
+  pixTimerInterval = setInterval(() => {
+    pixTimeRemaining--;
+    if (pixTimeRemaining <= 0) {
+      clearInterval(pixTimerInterval);
+      pixTimerInterval = null;
+      updatePixPayload();
+      pixTimeRemaining = 900;
+    }
+    updatePixTimerText();
+  }, 1000);
+}
+
+function updatePixTimerText() {
+  const timerEl = document.getElementById("pixTimerText");
+  if (!timerEl) return;
+  const minutes = Math.floor(pixTimeRemaining / 60);
+  const seconds = pixTimeRemaining % 60;
+  timerEl.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} min`;
+}
+
+function updateSubscriptionUI() {
+  const isPro = SubscriptionManager.isPro();
+  const badge = document.getElementById("headerProBadge");
+  const badgeText = document.getElementById("headerProText");
+  const activeCard = document.getElementById("activeSubscriptionCard");
+  const activePlanBadge = document.getElementById("activePlanBadge");
+  const activeExpiryText = document.getElementById("activeExpiryText");
+
+  if (isPro) {
+    const days = SubscriptionManager.getDaysRemaining();
+    const planName = SubscriptionManager.getPlanName();
+    if (badge) {
+      badge.className =
+        "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-black flex items-center space-x-1.5 shadow-sm transition transform active:scale-95 cursor-pointer";
+    }
+    if (badgeText) {
+      badgeText.textContent = `⭐ GEOFRETE PRO (${days}d)`;
+    }
+    if (activeCard) {
+      activeCard.classList.remove("hidden");
+      if (activePlanBadge) activePlanBadge.textContent = planName.toUpperCase();
+      if (activeExpiryText) activeExpiryText.textContent = `Assinatura válida por mais ${days} dia${days === 1 ? "" : "s"}.`;
+    }
+  } else {
+    if (badge) {
+      badge.className =
+        "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-black flex items-center space-x-1.5 shadow-md shadow-amber-500/20 transition transform active:scale-95 cursor-pointer";
+    }
+    if (badgeText) {
+      badgeText.textContent = "R$ 49,99/mês • Assinar PRO";
+    }
+    if (activeCard) {
+      activeCard.classList.add("hidden");
+    }
+  }
+}
+
+function playFanfareBeep() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.1);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime + idx * 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + idx * 0.1 + 0.25);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + idx * 0.1);
+      osc.stop(audioCtx.currentTime + idx * 0.1 + 0.25);
+    });
+  } catch (err) {
+    console.debug("Fanfare audio:", err);
+  }
+}
+
+// -------------------------------------------------------------
+// ADVANCED EXPORTS (GOOGLE MAPS MULTI-STOP & GPX)
+// -------------------------------------------------------------
+function exportBatchToGoogleMaps() {
+  if (!renderedStops || renderedStops.length === 0) {
+    alert("Calcule a rota antes de exportar.");
+    return;
+  }
+
+  // Google Maps URL direction limit is ~10 points
+  const stops = renderedStops.slice(0, 10);
+  const originStr = `${currentOrigin.lat},${currentOrigin.lng}`;
+  const destStr = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
+  const waypoints = stops.slice(0, stops.length - 1).map((s) => `${s.lat},${s.lng}`).join("|");
+
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${originStr}&destination=${destStr}`;
+  if (waypoints) {
+    url += `&waypoints=${encodeURIComponent(waypoints)}`;
+  }
+  window.open(url, "_blank");
+}
+
+function exportRouteGPX() {
+  if (!renderedStops || renderedStops.length === 0) {
+    alert("Calcule a rota antes de exportar.");
+    return;
+  }
+
+  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="GEOFRETE PRO">\n<rte>\n<name>Rota GEOFRETE - ${new Date().toLocaleDateString()}</name>\n`;
+  gpx += `  <rtept lat="${currentOrigin.lat}" lon="${currentOrigin.lng}"><name>Partida</name></rtept>\n`;
+  renderedStops.forEach((s) => {
+    const cleanName = (s.name || s.address).replace(/[<>&]/g, "");
+    gpx += `  <rtept lat="${s.lat}" lon="${s.lng}"><name>${s.sequenceOrder}. ${cleanName}</name></rtept>\n`;
+  });
+  gpx += `</rte>\n</gpx>`;
+
+  const blob = new Blob([gpx], { type: "application/gpx+xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `rota_geofrete_${Date.now()}.gpx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showPaymentToast("Arquivo GPX exportado com sucesso!");
 }
