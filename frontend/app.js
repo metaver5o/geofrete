@@ -139,10 +139,12 @@ function loadSettings() {
   const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "pix@girarota.com";
   const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GIRAROTA BRASIL";
   const pixCity = localStorage.getItem("geofrete_admin_pix_city") || "CAMPO LARGO";
+  const whatsappPhone = localStorage.getItem("geofrete_admin_whatsapp_phone") || "41991703924";
 
   if (document.getElementById("adminPixKeyInput")) document.getElementById("adminPixKeyInput").value = pixKey;
   if (document.getElementById("adminPixNameInput")) document.getElementById("adminPixNameInput").value = pixName;
   if (document.getElementById("adminPixCityInput")) document.getElementById("adminPixCityInput").value = pixCity;
+  if (document.getElementById("adminWhatsAppPhoneInput")) document.getElementById("adminWhatsAppPhoneInput").value = whatsappPhone;
 
   // Load Privy & Google Client ID Settings
   const privyAppId = localStorage.getItem("geofrete_admin_privy_app_id") || "";
@@ -177,10 +179,12 @@ function saveSettings() {
   const pixKey = (document.getElementById("adminPixKeyInput")?.value || "pix@girarota.com").trim();
   const pixName = (document.getElementById("adminPixNameInput")?.value || "GIRAROTA BRASIL").trim();
   const pixCity = (document.getElementById("adminPixCityInput")?.value || "CAMPO LARGO").trim();
+  const whatsappPhone = (document.getElementById("adminWhatsAppPhoneInput")?.value || "41991703924").trim();
 
   localStorage.setItem("geofrete_admin_pix_key", pixKey);
   localStorage.setItem("geofrete_admin_pix_name", pixName);
   localStorage.setItem("geofrete_admin_pix_city", pixCity);
+  localStorage.setItem("geofrete_admin_whatsapp_phone", whatsappPhone);
 
   // Save Mercado Pago Settings
   const mpClientId = (document.getElementById("adminMpClientIdInput")?.value || "").trim();
@@ -3131,6 +3135,9 @@ function closeSubscriptionModal() {
     clearInterval(pixTimerInterval);
     pixTimerInterval = null;
   }
+  if (typeof MercadoPagoManager !== "undefined" && MercadoPagoManager.stopPolling) {
+    MercadoPagoManager.stopPolling();
+  }
 }
 
 function selectPlan(planId) {
@@ -3217,14 +3224,20 @@ function confirmPixPayment() {
 }
 
 function checkManualPixPaymentStatus() {
-  const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
-  showPaymentToast("⏳ Consultando confirmação bancária... Se transferiu manualmente, envie o comprovante pelo WhatsApp.");
+  if (typeof MercadoPagoManager !== "undefined" && MercadoPagoManager.checkRecentApprovedPayment) {
+    MercadoPagoManager.checkRecentApprovedPayment(false);
+  } else {
+    showPaymentToast("⏳ Consultando confirmação bancária...");
+  }
 }
 
 function openWhatsAppProofSupport() {
   const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
-  const msg = `Olá! Fiz a transferência Pix de ${plan.formatted} para ativar o plano ${plan.name} no GiraRota. Segue meu comprovante de pagamento:`;
-  const url = `https://api.whatsapp.com/send?phone=5541999999999&text=${encodeURIComponent(msg)}`;
+  const rawPhone = localStorage.getItem("geofrete_admin_whatsapp_phone") || "41991703924";
+  const cleanDigits = rawPhone.replace(/\D/g, "");
+  const phone = cleanDigits.startsWith("55") ? cleanDigits : `55${cleanDigits}`;
+  const msg = `Olá! Fiz o pagamento de ${plan.formatted} para ativar o plano ${plan.name} no GiraRota. Segue meu comprovante de pagamento:`;
+  const url = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`;
   window.open(url, "_blank");
 }
 
@@ -3232,6 +3245,8 @@ function openWhatsAppProofSupport() {
 // MERCADO PAGO (MERCADO LIVRE) AUTOMATED CHECKOUT INTEGRATION
 // -------------------------------------------------------------
 const MercadoPagoManager = {
+  pollingTimer: null,
+
   getAccessToken() {
     return localStorage.getItem("geofrete_admin_mp_access_token") || "APP_USR-6934117545630305-091300-af1bf18fa45ec8a6e72243bf7b687881-3687145136";
   },
@@ -3323,13 +3338,107 @@ const MercadoPagoManager = {
     }
   },
 
+  startPolling() {
+    if (this.pollingTimer) clearInterval(this.pollingTimer);
+    this.pollingTimer = setInterval(async () => {
+      const found = await this.checkRecentApprovedPayment(true);
+      if (found) {
+        this.stopPolling();
+      }
+    }, 3500);
+
+    // Stop polling after 10 minutes
+    setTimeout(() => {
+      this.stopPolling();
+    }, 600000);
+  },
+
+  stopPolling() {
+    if (this.pollingTimer) {
+      clearInterval(this.pollingTimer);
+      this.pollingTimer = null;
+    }
+  },
+
+  async checkRecentApprovedPayment(quiet = false) {
+    const token = this.getAccessToken();
+    if (!token) {
+      if (!quiet) showPaymentToast("Token do Mercado Pago não configurado.");
+      return false;
+    }
+
+    try {
+      if (!quiet) showPaymentToast("🔍 Consultando Mercado Pago em tempo real...");
+      const resp = await fetch("https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&limit=10", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!resp.ok) {
+        if (!quiet) showPaymentToast("Não foi possível consultar o Mercado Pago.");
+        return false;
+      }
+
+      const data = await resp.json();
+      const results = data.results || [];
+
+      if (!results.length) {
+        if (!quiet) showPaymentToast("⏳ Nenhum pagamento recente encontrado no Mercado Pago.");
+        return false;
+      }
+
+      const usedPayments = JSON.parse(localStorage.getItem("girarota_processed_payments") || "[]");
+      const now = Date.now();
+
+      for (const p of results) {
+        if (p.status === "approved") {
+          const pid = String(p.id);
+          if (!usedPayments.includes(pid)) {
+            const paymentTime = new Date(p.date_approved || p.date_created).getTime();
+            // Approved in last 4 hours
+            if (now - paymentTime < 4 * 60 * 60 * 1000) {
+              usedPayments.push(pid);
+              localStorage.setItem("girarota_processed_payments", JSON.stringify(usedPayments));
+
+              let planId = currentSelectedPlan || "monthly";
+              if (p.transaction_amount >= 149) planId = "annual";
+              else if (p.transaction_amount >= 99) planId = "semiannual";
+              else if (p.transaction_amount >= 49) planId = "quarterly";
+              else if (p.transaction_amount >= 20) planId = "monthly";
+              else if (p.transaction_amount >= 4) planId = "daily";
+
+              const plan = PLANS_CONFIG[planId] || PLANS_CONFIG.monthly;
+              SubscriptionManager.activatePro(plan.id, plan.days, `MP-${pid}`);
+
+              showPaymentToast(`🎉 Pagamento aprovado no Mercado Pago (${p.payment_method_id ? p.payment_method_id.toUpperCase() : "PIX"})! Assinatura ${plan.name} liberada.`);
+              playFanfareBeep();
+              closeSubscriptionModal();
+              return true;
+            }
+          }
+        }
+      }
+
+      if (!quiet) {
+        showPaymentToast("⏳ Pagamento ainda não compensado. Assim que o Pix for aprovado no seu banco, a liberação ocorre em segundos.");
+      }
+      return false;
+    } catch (e) {
+      console.warn("Erro ao consultar pagamentos Mercado Pago:", e);
+      if (!quiet) showPaymentToast("Erro ao conectar com a API do Mercado Pago.");
+      return false;
+    }
+  },
+
   async openCheckout(planId = null) {
     const plan = PLANS_CONFIG[planId || currentSelectedPlan] || PLANS_CONFIG.monthly;
     const directLink = this.getPaymentLink(plan.id);
 
     if (directLink) {
       window.open(directLink, "_blank");
-      showPaymentToast("Redirecionando para o checkout seguro do Mercado Pago...");
+      this.startPolling();
+      showPaymentToast("Redirecionando para o Mercado Pago... Aguardando confirmação em tempo real!");
       return;
     }
 
@@ -3340,7 +3449,7 @@ const MercadoPagoManager = {
         alert("Atenção: Configure seu Access Token ou Link de Pagamento do Mercado Pago no Painel do Administrador.");
         openAdminSettings();
       } else {
-        alert(`Para ativar o plano ${plan.name} (${plan.formatted}), utilize o Pix Copia e Cola na tela ou envie o comprovante para liberação.`);
+        alert(`Para ativar o plano ${plan.name} (${plan.formatted}), utilize o Pix na tela ou envie o comprovante para liberação.`);
       }
       return;
     }
@@ -3383,7 +3492,15 @@ const MercadoPagoManager = {
       const pref = await response.json();
       const checkoutUrl = pref.init_point || pref.sandbox_init_point;
       if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+        // Open checkout in new tab so GiraRota actively polls in background!
+        const win = window.open(checkoutUrl, "_blank");
+        if (!win) {
+          // If popup blocker intervened, redirect same window
+          window.location.href = checkoutUrl;
+        } else {
+          this.startPolling();
+          showPaymentToast("⚡ Mercado Pago aberto! Assim que pagar seu Pix/Cartão, o app liberará na hora.");
+        }
       } else {
         throw new Error("URL de checkout do Mercado Pago não retornada.");
       }
