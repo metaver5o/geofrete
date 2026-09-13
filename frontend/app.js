@@ -776,3 +776,183 @@ function updateDeliveredStatus() {
     }
   }
 }
+
+// -------------------------------------------------------------
+// REAL-TIME ONLINE SCANNER & AUDIO FEEDBACK
+// -------------------------------------------------------------
+let html5QrCode = null;
+let sessionScanCount = 0;
+let lastScannedText = "";
+let lastScanTime = 0;
+
+const RANDOM_ADDRESS_POOL = [
+  { name: "Farmácia Nissei", address: "Rua Marechal Deodoro, 450 - Centro, Campo Largo - PR", lat: -25.4578, lng: -49.5298 },
+  { name: "Supermercado Condor", address: "Rua Xavier da Silva, 1150 - Centro, Campo Largo - PR", lat: -25.4605, lng: -49.5262 },
+  { name: "Auto Posto Centro", address: "Rua Dom Pedro II, 820 - Centro, Campo Largo - PR", lat: -25.4561, lng: -49.5312 },
+  { name: "Residencial Jardins", address: "Rua XV de Novembro, 1600 - Centro, Campo Largo - PR", lat: -25.4542, lng: -49.5335 },
+  { name: "Condomínio Pinheiros", address: "Rua Centenário, 1850 - Centro, Campo Largo - PR", lat: -25.4520, lng: -49.5320 },
+  { name: "Comercial Silva", address: "Rua Gonçalves Dias, 700 - Centro, Campo Largo - PR", lat: -25.4625, lng: -49.5270 },
+  { name: "Metalúrgica Tourinho", address: "Rua Engenheiro Tourinho, 980 - Centro, Campo Largo - PR", lat: -25.4640, lng: -49.5245 },
+  { name: "Laboratório Bom Jesus", address: "Rua Benedito Soares Pinto, 1420 - Vila Bancária, Campo Largo - PR", lat: -25.4510, lng: -49.5255 },
+  { name: "Panificadora Pão D'Oro", address: "Rua Quintino Bocaiúva, 650 - Vila Bancária, Campo Largo - PR", lat: -25.4490, lng: -49.5280 },
+  { name: "Cerâmica Campo Largo", address: "Rua Ema Taner de Andrade, 320 - Ferrari, Campo Largo - PR", lat: -25.4460, lng: -49.5190 },
+  { name: "Distribuidora Solene", address: "Rua Caetano Munhoz da Rocha, 890 - Vila Solene, Campo Largo - PR", lat: -25.4665, lng: -49.5325 },
+  { name: "Mercearia São José", address: "Rua Des. Clotário Portugal, 550 - Vila Solene, Campo Largo - PR", lat: -25.4680, lng: -49.5350 },
+  { name: "Vinícola Campo Largo", address: "Rua Subestação de Enologia, 450 - Campo do Meio, Campo Largo - PR", lat: -25.4720, lng: -49.5180 },
+  { name: "Hospital do Rocio", address: "Av. Padre Natal Pigatto, 1200 - Vila Elizabeth, Campo Largo - PR", lat: -25.4485, lng: -49.5385 },
+  { name: "Mecânica Águas Claras", address: "Rua Ayrton Senna da Silva, 2500 - Águas Claras, Campo Largo - PR", lat: -25.4350, lng: -49.5120 },
+];
+
+function playScanBeep() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1400, audioCtx.currentTime); // 1.4 kHz sharp beep
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.12);
+  } catch (err) {
+    console.debug("Audio beep not permitted yet:", err);
+  }
+}
+
+function triggerScanVisualEffect() {
+  const flash = document.getElementById("scannerFlash");
+  if (flash) {
+    flash.classList.remove("hidden");
+    setTimeout(() => flash.classList.add("hidden"), 160);
+  }
+  if (navigator.vibrate) {
+    try { navigator.vibrate(50); } catch (e) {}
+  }
+}
+
+async function openCameraScanner() {
+  document.getElementById("cameraModal").classList.remove("hidden");
+  sessionScanCount = 0;
+  document.getElementById("sessionScanCount").textContent = "0 pacotes";
+
+  if (typeof Html5Qrcode !== "undefined") {
+    try {
+      html5QrCode = new Html5Qrcode("scannerReader");
+      const config = { fps: 10, qrbox: { width: 260, height: 160 } };
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+          handleScannedBarcode(decodedText);
+        },
+        () => {}
+      );
+    } catch (err) {
+      console.warn("Html5Qrcode direct start failed, using native video stream fallback:", err);
+      startNativeCameraFallback();
+    }
+  } else {
+    startNativeCameraFallback();
+  }
+  initLucide();
+}
+
+async function startNativeCameraFallback() {
+  const video = document.getElementById("scannerVideo");
+  if (!video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+    video.srcObject = stream;
+    video.classList.remove("hidden");
+  } catch (err) {
+    console.warn("Native camera stream unavailable:", err);
+  }
+}
+
+async function closeCameraScanner() {
+  if (html5QrCode) {
+    try {
+      await html5QrCode.stop();
+      html5QrCode.clear();
+    } catch (e) {}
+    html5QrCode = null;
+  }
+  const video = document.getElementById("scannerVideo");
+  if (video && video.srcObject) {
+    const tracks = video.srcObject.getTracks();
+    tracks.forEach((track) => track.stop());
+    video.srcObject = null;
+    video.classList.add("hidden");
+  }
+  document.getElementById("cameraModal").classList.add("hidden");
+
+  if (sessionScanCount > 0) {
+    runOptimization();
+  }
+}
+
+function handleScannedBarcode(text) {
+  const now = Date.now();
+  if (text === lastScannedText && now - lastScanTime < 1800) {
+    return; // Debounce repeated frame scans of the same code
+  }
+  lastScannedText = text;
+  lastScanTime = now;
+
+  playScanBeep();
+  triggerScanVisualEffect();
+
+  sessionScanCount++;
+  document.getElementById("sessionScanCount").textContent = `${sessionScanCount} pacote${sessionScanCount === 1 ? "" : "s"}`;
+
+  const sample = RANDOM_ADDRESS_POOL[(currentStops.length) % RANDOM_ADDRESS_POOL.length];
+  const newStop = {
+    name: `Pacote #${currentStops.length + 1}`,
+    address: sample.address,
+    lat: sample.lat + (Math.random() - 0.5) * 0.003,
+    lng: sample.lng + (Math.random() - 0.5) * 0.003,
+    tracking: text && text.length > 4 ? text.substring(0, 16) : `BR${Math.floor(100000000 + Math.random() * 900000000)}SP`,
+  };
+
+  currentStops.push(newStop);
+  updateBatchTextArea();
+  updatePackageCount();
+}
+
+function triggerMockCapture() {
+  const mockCode = `BR${Math.floor(100000000 + Math.random() * 900000000)}PR`;
+  handleScannedBarcode(mockCode);
+}
+
+async function simulateRapidScan() {
+  clearBatch();
+  const originSample = SAMPLE_DATASETS.cl15.origin;
+  currentOrigin = { ...originSample };
+  document.getElementById("originAddress").value = currentOrigin.address;
+  document.getElementById("originLat").value = currentOrigin.lat;
+  document.getElementById("originLng").value = currentOrigin.lng;
+
+  const btn = event.currentTarget;
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+
+  const itemsToScan = SAMPLE_DATASETS.cl15.items;
+  for (let i = 0; i < itemsToScan.length; i++) {
+    btn.innerHTML = `<span class="animate-pulse">Bipando ${i + 1}/${itemsToScan.length}...</span>`;
+    playScanBeep();
+    triggerScanVisualEffect();
+    currentStops.push(itemsToScan[i]);
+    updateBatchTextArea();
+    updatePackageCount();
+    await new Promise((r) => setTimeout(r, 240));
+  }
+
+  btn.innerHTML = originalText;
+  btn.disabled = false;
+
+  await runOptimization();
+}
