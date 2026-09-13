@@ -407,19 +407,25 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
         <!-- Metric Summary Panel (hidden before optimization) -->
         <div id="metricsPanel" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Resumo do Itinerário</h3>
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Resumo do Itinerário</h3>
+            <button id="voiceToggleBtn" onclick="AiVoiceAssistant.toggle()" class="bg-brand-500/15 hover:bg-brand-500/25 text-brand-300 border border-brand-500/30 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm" title="Ativar ou desativar narração por voz da IA">
+              <i data-lucide="volume-2" class="w-3.5 h-3.5 text-brand-400"></i>
+              <span id="voiceToggleText">Voz IA: Ativada</span>
+            </button>
+          </div>
           <div class="grid grid-cols-3 gap-3 text-center">
             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
               <div class="text-2xl font-black text-brand-400" id="statStops">0</div>
-              <div class="text-xs text-slate-400 mt-1">Paradas</div>
+              <div class="text-xs text-slate-400 mt-1" id="statStopsLabel">Paradas</div>
             </div>
             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
               <div class="text-2xl font-black text-emerald-400" id="statDistance">0 km</div>
-              <div class="text-xs text-slate-400 mt-1">Distância</div>
+              <div class="text-xs text-slate-400 mt-1" id="statDistanceLabel">Distância</div>
             </div>
             <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
               <div class="text-2xl font-black text-amber-400" id="statTime">0 min</div>
-              <div class="text-xs text-slate-400 mt-1">Tempo Est.</div>
+              <div class="text-xs text-slate-400 mt-1" id="statTimeLabel">Tempo Est.</div>
             </div>
           </div>
           <div class="pt-2 border-t border-slate-800 flex items-center space-x-2">
@@ -1372,6 +1378,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

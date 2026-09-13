@@ -34,6 +34,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Check and process referral link from URL
   ReferralManager.initReferralLinkFromURL();
 
+  // Initialize AI Voice Assistant
+  AiVoiceAssistant.init();
+
   updateSubscriptionUI();
   updateUserHeaderUI();
 
@@ -836,14 +839,34 @@ async function runBackendApiOptimization() {
 // -------------------------------------------------------------
 // MAP & ITINERARY RENDERING
 // -------------------------------------------------------------
+let currentRouteMetrics = {
+  totalStops: 0,
+  totalDistanceKm: 0,
+  estimatedTimeMin: 0,
+};
+
 function renderOptimizedRoute(result) {
   const { orderedStops, totalDistanceKm, estimatedTimeMin } = result;
 
-  // Update Metrics
+  currentRouteMetrics = {
+    totalStops: orderedStops.length,
+    totalDistanceKm: totalDistanceKm,
+    estimatedTimeMin: estimatedTimeMin,
+  };
+
+  // Update Metrics Panel & Initial Labels
   document.getElementById("metricsPanel").classList.remove("hidden");
   document.getElementById("statStops").textContent = orderedStops.length;
   document.getElementById("statDistance").textContent = `${totalDistanceKm.toFixed(1)} km`;
   document.getElementById("statTime").textContent = `${Math.round(estimatedTimeMin)} min`;
+  
+  const lblStops = document.getElementById("statStopsLabel");
+  const lblDist = document.getElementById("statDistanceLabel");
+  const lblTime = document.getElementById("statTimeLabel");
+  if (lblStops) lblStops.textContent = "Paradas";
+  if (lblDist) lblDist.textContent = "Distância";
+  if (lblTime) lblTime.textContent = "Tempo Est.";
+
   document.getElementById("itineraryStatus").textContent = "Rota calculada com sucesso!";
 
   // Clear Map & Reset Markers
@@ -1047,18 +1070,32 @@ function toggleDelivered(index, isDelivered) {
 
   updateDeliveredStatus();
   updateFullscreenHUD();
+
+  if (isDelivered) {
+    AiVoiceAssistant.announceDelivery(index);
+  }
 }
 
 function updateDeliveredStatus() {
-  const total = renderedStops.length;
+  const total = renderedStops ? renderedStops.length : 0;
   if (total === 0) return;
 
-  const checkboxes = document.querySelectorAll("#stopsList input[type='checkbox']");
   let deliveredCount = 0;
-  checkboxes.forEach((cb) => {
-    if (cb.checked) deliveredCount++;
+  let remainingStops = [];
+  renderedStops.forEach((stop, idx) => {
+    if (isStopDelivered(idx)) {
+      deliveredCount++;
+    } else {
+      remainingStops.push(stop);
+    }
   });
 
+  const remainingCount = remainingStops.length;
+  const remainingDistanceKm = remainingStops.reduce((sum, s) => sum + (s.distFromPrevKm || 0), 0);
+  const remainingDriveMinutes = (remainingDistanceKm / 25.0) * 60.0;
+  const remainingMinutes = Math.round(remainingDriveMinutes + remainingCount * 3.0);
+
+  // Status message
   const statusEl = document.getElementById("itineraryStatus");
   if (statusEl) {
     if (deliveredCount === total) {
@@ -1069,6 +1106,208 @@ function updateDeliveredStatus() {
       statusEl.textContent = "Rota calculada com sucesso!";
     }
   }
+
+  // Update Metric Summary Cards (Paradas, Distância, Tempo Est.)
+  const statStopsEl = document.getElementById("statStops");
+  const statDistEl = document.getElementById("statDistance");
+  const statTimeEl = document.getElementById("statTime");
+  const lblStopsEl = document.getElementById("statStopsLabel");
+  const lblDistEl = document.getElementById("statDistanceLabel");
+  const lblTimeEl = document.getElementById("statTimeLabel");
+
+  if (deliveredCount === 0) {
+    if (statStopsEl) statStopsEl.textContent = total;
+    if (statDistEl) statDistEl.textContent = `${(currentRouteMetrics.totalDistanceKm || 0).toFixed(1)} km`;
+    if (statTimeEl) statTimeEl.textContent = `${Math.round(currentRouteMetrics.estimatedTimeMin || 0)} min`;
+    if (lblStopsEl) lblStopsEl.textContent = "Paradas";
+    if (lblDistEl) lblDistEl.textContent = "Distância";
+    if (lblTimeEl) lblTimeEl.textContent = "Tempo Est.";
+  } else if (deliveredCount === total) {
+    if (statStopsEl) statStopsEl.innerHTML = `<span class="text-emerald-400">✓ ${total}</span>`;
+    if (statDistEl) statDistEl.textContent = "0.0 km";
+    if (statTimeEl) statTimeEl.textContent = "0 min";
+    if (lblStopsEl) lblStopsEl.textContent = "Concluídas";
+    if (lblDistEl) lblDistEl.textContent = "Restante";
+    if (lblTimeEl) lblTimeEl.textContent = "Finalizado";
+  } else {
+    if (statStopsEl) statStopsEl.innerHTML = `${remainingCount} <span class="text-xs text-slate-500 font-normal">(${deliveredCount}/${total})</span>`;
+    if (statDistEl) statDistEl.textContent = `${remainingDistanceKm.toFixed(1)} km`;
+    if (statTimeEl) statTimeEl.textContent = `${remainingMinutes} min`;
+    if (lblStopsEl) lblStopsEl.textContent = "Paradas Rest.";
+    if (lblDistEl) lblDistEl.textContent = "Dist. Restante";
+    if (lblTimeEl) lblTimeEl.textContent = "Tempo Restante";
+  }
+}
+
+// -------------------------------------------------------------
+// AI VOICE ASSISTANT (TTS) - DELIVERY STATS AUDIO FEEDBACK
+// -------------------------------------------------------------
+const AiVoiceAssistant = {
+  isEnabled: true,
+  cachedVoice: null,
+
+  init() {
+    const saved = localStorage.getItem("girarota_voice_enabled");
+    this.isEnabled = saved !== null ? saved === "true" : true;
+    this.updateVoiceToggleUI();
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        this.getBestVoice();
+      };
+      this.getBestVoice();
+    }
+  },
+
+  getBestVoice() {
+    if (!("speechSynthesis" in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    const ptBrVoice = voices.find(
+      (v) => (v.lang === "pt-BR" || v.lang === "pt_BR") && (v.name.includes("Google") || v.name.includes("Luciana") || v.name.includes("Natural"))
+    ) || voices.find(
+      (v) => v.lang === "pt-BR" || v.lang === "pt_BR"
+    ) || voices.find(
+      (v) => v.lang.startsWith("pt")
+    );
+
+    this.cachedVoice = ptBrVoice || null;
+    return this.cachedVoice;
+  },
+
+  toggle() {
+    this.isEnabled = !this.isEnabled;
+    localStorage.setItem("girarota_voice_enabled", this.isEnabled ? "true" : "false");
+    this.updateVoiceToggleUI();
+
+    if (this.isEnabled) {
+      this.speak("Voz da assistente de entregas ativada.");
+      showAiVoiceToast("🔊 Voz da Assistente IA ativada!");
+    } else {
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      showAiVoiceToast("🔇 Voz da Assistente IA silenciada.");
+    }
+  },
+
+  updateVoiceToggleUI() {
+    const btnText = document.getElementById("voiceToggleText");
+    const btn = document.getElementById("voiceToggleBtn");
+    if (btnText) {
+      btnText.textContent = this.isEnabled ? "Voz IA: Ativada" : "Voz IA: Silenciada";
+    }
+    if (btn) {
+      if (this.isEnabled) {
+        btn.className = "bg-brand-500/15 hover:bg-brand-500/25 text-brand-300 border border-brand-500/30 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm";
+      } else {
+        btn.className = "bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm";
+      }
+    }
+  },
+
+  announceDelivery(deliveredIndex) {
+    if (!renderedStops || renderedStops.length === 0) return;
+
+    const total = renderedStops.length;
+    let deliveredCount = 0;
+    let remainingStops = [];
+
+    renderedStops.forEach((stop, idx) => {
+      if (isStopDelivered(idx)) {
+        deliveredCount++;
+      } else {
+        remainingStops.push(stop);
+      }
+    });
+
+    const remainingCount = remainingStops.length;
+    const remainingDistanceKm = remainingStops.reduce((sum, s) => sum + (s.distFromPrevKm || 0), 0);
+    const remainingDriveMinutes = (remainingDistanceKm / 25.0) * 60.0;
+    const remainingMinutes = Math.round(remainingDriveMinutes + remainingCount * 3.0);
+
+    let phrase = "";
+    if (remainingCount === 0) {
+      phrase = `Parabéns! Todas as ${total} paradas foram entregues com sucesso! Rota finalizada!`;
+    } else if (remainingCount === 1) {
+      let distText = remainingDistanceKm < 1.0 
+        ? `${Math.round(remainingDistanceKm * 1000)} metros` 
+        : `${remainingDistanceKm.toFixed(1).replace(".", ",")} quilômetros`;
+      phrase = `Entrega confirmada! Falta apenas uma última parada. ${distText} e ${remainingMinutes} ${remainingMinutes === 1 ? "minuto" : "minutos"} estimados para terminar.`;
+    } else {
+      let distText = remainingDistanceKm < 1.0 
+        ? `${Math.round(remainingDistanceKm * 1000)} metros` 
+        : `${remainingDistanceKm.toFixed(1).replace(".", ",")} quilômetros`;
+      phrase = `Entrega confirmada! Restam ${remainingCount} paradas, ${distText} e ${remainingMinutes} ${remainingMinutes === 1 ? "minuto" : "minutos"} estimados.`;
+    }
+
+    // Show visual AI voice speech balloon
+    showAiVoiceToast(phrase);
+
+    // Speak audio
+    if (this.isEnabled) {
+      this.speak(phrase);
+    }
+  },
+
+  speak(text) {
+    if (!("speechSynthesis" in window)) {
+      console.warn("SpeechSynthesis not supported.");
+      return;
+    }
+
+    try {
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "pt-BR";
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+
+      const voice = this.cachedVoice || this.getBestVoice();
+      if (voice) {
+        utterance.voice = voice;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn("Speech synthesis error:", err);
+    }
+  },
+};
+
+let aiVoiceToastTimeout = null;
+function showAiVoiceToast(text) {
+  let toast = document.getElementById("aiVoiceToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "aiVoiceToast";
+    toast.className = "fixed top-20 left-1/2 transform -translate-x-1/2 z-[100001] bg-slate-900/95 border border-brand-500/60 text-white px-4 py-3 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-md flex items-center space-x-3 max-w-md w-[90%] pointer-events-none transition-all duration-300 opacity-0 -translate-y-2";
+    document.body.appendChild(toast);
+  }
+
+  toast.innerHTML = `
+    <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center text-white flex-shrink-0 shadow-md">
+      <i data-lucide="bot" class="w-4 h-4"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="text-[10px] uppercase font-black text-brand-400 tracking-wider flex items-center space-x-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-brand-400 animate-ping"></span>
+        <span>Assistente GiraRota IA</span>
+      </div>
+      <p class="text-xs text-slate-100 font-medium leading-tight mt-0.5">${text}</p>
+    </div>
+  `;
+
+  if (window.lucide) window.lucide.createIcons();
+
+  toast.classList.remove("hidden", "opacity-0", "-translate-y-2");
+  toast.classList.add("opacity-100", "translate-y-0");
+
+  if (aiVoiceToastTimeout) clearTimeout(aiVoiceToastTimeout);
+  aiVoiceToastTimeout = setTimeout(() => {
+    toast.classList.remove("opacity-100", "translate-y-0");
+    toast.classList.add("opacity-0", "-translate-y-2");
+  }, 4500);
 }
 
 // -------------------------------------------------------------
