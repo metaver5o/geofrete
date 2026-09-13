@@ -280,6 +280,16 @@ function setAdminUI(isAdmin) {
       dropdownSettingsBtn.classList.add("hidden");
     }
   }
+
+  // Show/hide referral simulation controls (admin only)
+  const simControls = document.getElementById("referralSimulationControls");
+  if (simControls) {
+    if (isAdmin) {
+      simControls.classList.remove("hidden");
+    } else {
+      simControls.classList.add("hidden");
+    }
+  }
 }
 
 function openAdminSettings() {
