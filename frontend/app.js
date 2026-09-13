@@ -138,6 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   updateSubscriptionUI();
+  updateUserHeaderUI();
 
   // Handle radio mode changes in settings modal
   document.querySelectorAll("input[name='engineMode']").forEach((radio) => {
@@ -238,6 +239,12 @@ function loadSettings() {
   if (document.getElementById("adminPixCityInput")) document.getElementById("adminPixCityInput").value = pixCity;
   if (document.getElementById("adminCheckoutUrlInput")) document.getElementById("adminCheckoutUrlInput").value = checkoutUrl;
   if (document.getElementById("externalCheckoutLink")) document.getElementById("externalCheckoutLink").href = checkoutUrl;
+
+  // Load Privy & Google Client ID Settings
+  const privyAppId = localStorage.getItem("geofrete_admin_privy_app_id") || "cl_geofrete_demo_2026";
+  const googleClientId = localStorage.getItem("geofrete_admin_google_client_id") || "geofrete-google-client-id";
+  if (document.getElementById("adminPrivyAppIdInput")) document.getElementById("adminPrivyAppIdInput").value = privyAppId;
+  if (document.getElementById("adminGoogleClientIdInput")) document.getElementById("adminGoogleClientIdInput").value = googleClientId;
 }
 
 function saveSettings() {
@@ -258,6 +265,12 @@ function saveSettings() {
   localStorage.setItem("geofrete_admin_pix_city", pixCity);
   localStorage.setItem("geofrete_admin_checkout_url", checkoutUrl);
   if (document.getElementById("externalCheckoutLink")) document.getElementById("externalCheckoutLink").href = checkoutUrl;
+
+  // Save Privy & Google Settings
+  const privyAppId = (document.getElementById("adminPrivyAppIdInput")?.value || "cl_geofrete_demo_2026").trim();
+  const googleClientId = (document.getElementById("adminGoogleClientIdInput")?.value || "geofrete-google-client-id").trim();
+  localStorage.setItem("geofrete_admin_privy_app_id", privyAppId);
+  localStorage.setItem("geofrete_admin_google_client_id", googleClientId);
 
   updateModeUI(selectedMode);
   document.getElementById("settingsModal").classList.add("hidden");
@@ -2011,6 +2024,7 @@ function updateSubscriptionUI() {
       activeCard.classList.add("hidden");
     }
   }
+  updateUserHeaderUI();
 }
 
 function playFanfareBeep() {
@@ -2079,3 +2093,349 @@ function exportRouteGPX() {
   document.body.removeChild(a);
   showPaymentToast("Arquivo GPX exportado com sucesso!");
 }
+
+// =============================================================
+// PRIVY-STYLE SOCIAL AUTH MANAGER & MODAL LOGIC
+// =============================================================
+
+let pendingAuthData = null;
+
+const SocialAuthManager = {
+  STORAGE_KEY: "geofrete_auth_user",
+
+  getUser() {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      console.warn("Failed to parse auth user:", e);
+      return null;
+    }
+  },
+
+  setUser(userData) {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(userData));
+      updateUserHeaderUI();
+      updateSubscriptionUI();
+
+      // Gracefully notify backend if API mode is configured
+      const apiUrl = localStorage.getItem("geofrete_api_url") || "http://localhost:8000";
+      fetch(`${apiUrl}/api/v1/auth/social-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: userData.provider || "privy",
+          provider_id: userData.id || userData.email || userData.phone || "user",
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone,
+          avatar_url: userData.avatar_url,
+        }),
+      }).catch(() => {
+        // Standalone offline or GitHub Pages mode without local backend
+      });
+    } catch (e) {
+      console.error("Failed to store auth user:", e);
+    }
+  },
+
+  logout() {
+    localStorage.removeItem(this.STORAGE_KEY);
+    updateUserHeaderUI();
+    updateSubscriptionUI();
+    showPaymentToast("Você saiu da sua conta.");
+  },
+
+  async loginWithGoogle() {
+    const clientId = (localStorage.getItem("geofrete_admin_google_client_id") || "").trim();
+
+    // If Google Identity Services library is loaded and a real client ID is configured
+    if (window.google && window.google.accounts && clientId && clientId !== "geofrete-google-client-id") {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => {
+            if (response && response.credential) {
+              const base64Url = response.credential.split(".")[1];
+              const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+              const jsonPayload = decodeURIComponent(
+                atob(base64)
+                  .split("")
+                  .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                  .join("")
+              );
+              const payload = JSON.parse(jsonPayload);
+              const user = {
+                id: `usr_${Date.now()}`,
+                did: `did:privy:${payload.sub || Math.random().toString(36).substring(2, 12)}`,
+                name: payload.name || payload.email || "Usuário Google",
+                email: payload.email,
+                avatar_url: payload.picture || null,
+                provider: "google",
+                loggedAt: new Date().toISOString(),
+              };
+              this.setUser(user);
+              closePrivyAuthModal();
+              showPaymentToast(`Bem-vindo, ${user.name}!`);
+            }
+          },
+        });
+        window.google.accounts.id.prompt();
+        return;
+      } catch (err) {
+        console.warn("Google One-Tap error:", err);
+      }
+    }
+
+    // Default seamless 1-click Privy-style sign in prompt
+    const mockEmail = prompt("Informe seu e-mail da Conta Google:", "entregador@gmail.com");
+    if (!mockEmail) return;
+
+    const shortName = mockEmail.split("@")[0];
+    const formattedName = shortName.charAt(0).toUpperCase() + shortName.slice(1);
+    const mockGoogleUser = {
+      id: `usr_${Date.now()}`,
+      did: `did:privy:${Math.random().toString(36).substring(2, 15)}`,
+      name: formattedName,
+      email: mockEmail,
+      avatar_url: null,
+      provider: "google",
+      loggedAt: new Date().toISOString(),
+    };
+
+    this.setUser(mockGoogleUser);
+    closePrivyAuthModal();
+    showPaymentToast(`Conectado com Google como ${mockGoogleUser.name}!`);
+  },
+
+  loginWithApple() {
+    const mockAppleUser = {
+      id: `usr_${Date.now()}`,
+      did: `did:privy:apple_${Math.random().toString(36).substring(2, 14)}`,
+      name: "Usuário Apple",
+      email: "privaterelay@appleid.com",
+      avatar_url: null,
+      provider: "apple",
+      loggedAt: new Date().toISOString(),
+    };
+
+    this.setUser(mockAppleUser);
+    closePrivyAuthModal();
+    showPaymentToast("Conectado com Apple ID com sucesso!");
+  },
+
+  async loginWithWeb3() {
+    if (typeof window.ethereum !== "undefined") {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        if (accounts && accounts.length > 0) {
+          const addr = accounts[0];
+          const shortAddr = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+          const web3User = {
+            id: `usr_${addr.slice(2, 10)}`,
+            did: `did:privy:${addr.toLowerCase()}`,
+            name: shortAddr,
+            email: null,
+            wallet: addr,
+            provider: "web3",
+            loggedAt: new Date().toISOString(),
+          };
+          this.setUser(web3User);
+          closePrivyAuthModal();
+          showPaymentToast(`Carteira conectada: ${shortAddr}`);
+          return;
+        }
+      } catch (err) {
+        console.warn("Web3 connection error:", err);
+      }
+    }
+
+    // Fallback embedded Privy wallet
+    const randomHex = "0x" + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    const shortAddr = `${randomHex.slice(0, 6)}...${randomHex.slice(-4)}`;
+    const embeddedUser = {
+      id: `usr_${Date.now()}`,
+      did: `did:privy:${randomHex}`,
+      name: `Privy (${shortAddr})`,
+      wallet: randomHex,
+      provider: "privy-embedded",
+      loggedAt: new Date().toISOString(),
+    };
+    this.setUser(embeddedUser);
+    closePrivyAuthModal();
+    showPaymentToast(`Carteira Privy Embedded ativada: ${shortAddr}`);
+  },
+
+  showPhoneView() {
+    document.getElementById("privyMainView")?.classList.add("hidden");
+    document.getElementById("privyOtpView")?.classList.add("hidden");
+    document.getElementById("privyPhoneView")?.classList.remove("hidden");
+    if (window.lucide) lucide.createIcons();
+    setTimeout(() => document.getElementById("privyPhoneInput")?.focus(), 100);
+  },
+
+  showMainView() {
+    document.getElementById("privyPhoneView")?.classList.add("hidden");
+    document.getElementById("privyOtpView")?.classList.add("hidden");
+    document.getElementById("privyMainView")?.classList.remove("hidden");
+    if (window.lucide) lucide.createIcons();
+    pendingAuthData = null;
+  },
+
+  showOtpView(targetText, pendingData) {
+    pendingAuthData = pendingData;
+    document.getElementById("privyMainView")?.classList.add("hidden");
+    document.getElementById("privyPhoneView")?.classList.add("hidden");
+    document.getElementById("privyOtpView")?.classList.remove("hidden");
+    if (window.lucide) lucide.createIcons();
+    const targetEl = document.getElementById("privyOtpTargetText");
+    if (targetEl) targetEl.textContent = targetText;
+    const otpInput = document.getElementById("privyOtpInput");
+    if (otpInput) {
+      otpInput.value = "";
+      setTimeout(() => otpInput.focus(), 100);
+    }
+  },
+
+  handlePhoneSubmit(e) {
+    e.preventDefault();
+    const phoneInput = document.getElementById("privyPhoneInput");
+    const phone = (phoneInput?.value || "").trim();
+    if (!phone || phone.replace(/\D/g, "").length < 10) {
+      alert("Por favor, insira um número de WhatsApp válido com DDD.");
+      return;
+    }
+
+    this.showOtpView(
+      `Código de 6 dígitos enviado via WhatsApp para ${phone}: (código de teste: 123456)`,
+      { provider: "whatsapp", phone: phone }
+    );
+    showPaymentToast(`Código enviado para o WhatsApp ${phone}!`);
+  },
+
+  handleEmailSubmit(e) {
+    e.preventDefault();
+    const emailInput = document.getElementById("privyEmailInput");
+    const email = (emailInput?.value || "").trim();
+    if (!email || !email.includes("@")) {
+      alert("Por favor, insira um e-mail válido.");
+      return;
+    }
+
+    this.showOtpView(
+      `Código de 6 dígitos enviado para o e-mail ${email}: (código de teste: 123456)`,
+      { provider: "email", email: email }
+    );
+    showPaymentToast(`Código enviado para o e-mail ${email}!`);
+  },
+
+  handleOtpSubmit(e) {
+    e.preventDefault();
+    const otpInput = document.getElementById("privyOtpInput");
+    const otp = (otpInput?.value || "").trim();
+    if (otp.length < 4) {
+      alert("Digite o código recebido.");
+      return;
+    }
+
+    const provider = pendingAuthData?.provider || "otp";
+    const phone = pendingAuthData?.phone || null;
+    const email = pendingAuthData?.email || null;
+    const name = phone || (email ? email.split("@")[0] : "Entregador");
+
+    const user = {
+      id: `usr_${Date.now()}`,
+      did: `did:privy:${Math.random().toString(36).substring(2, 14)}`,
+      name: name,
+      phone: phone,
+      email: email,
+      provider: provider,
+      loggedAt: new Date().toISOString(),
+    };
+
+    this.setUser(user);
+    closePrivyAuthModal();
+    showPaymentToast(`Login realizado com sucesso! Bem-vindo, ${name}.`);
+  },
+};
+
+function openPrivyAuthModal() {
+  SocialAuthManager.showMainView();
+  document.getElementById("privyAuthModal")?.classList.remove("hidden");
+  if (window.lucide) lucide.createIcons();
+}
+
+function closePrivyAuthModal() {
+  document.getElementById("privyAuthModal")?.classList.add("hidden");
+  SocialAuthManager.showMainView();
+}
+
+function toggleUserDropdown() {
+  const menu = document.getElementById("userDropdownMenu");
+  if (menu) {
+    menu.classList.toggle("hidden");
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function updateUserHeaderUI() {
+  const user = SocialAuthManager.getUser();
+  const authLoginBtn = document.getElementById("authLoginBtn");
+  const authUserMenu = document.getElementById("authUserMenu");
+
+  if (!authLoginBtn || !authUserMenu) return;
+
+  if (user) {
+    authLoginBtn.classList.add("hidden");
+    authUserMenu.classList.remove("hidden");
+
+    const nameEl = document.getElementById("userNavName");
+    const fullNameEl = document.getElementById("userDropdownFullName");
+    const handleEl = document.getElementById("userDropdownHandle");
+    const avatarEl = document.getElementById("userAvatarBubble");
+    const badgeEl = document.getElementById("userDropdownBadge");
+
+    if (nameEl) nameEl.textContent = user.name || "Entregador";
+    if (fullNameEl) fullNameEl.textContent = user.name || "Entregador";
+    if (handleEl) handleEl.textContent = user.did || "did:privy:...";
+
+    if (avatarEl) {
+      if (user.avatar_url) {
+        avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="Avatar" class="w-full h-full object-cover">`;
+      } else {
+        const initial = (user.name || "U").charAt(0).toUpperCase();
+        avatarEl.textContent = initial;
+      }
+    }
+
+    if (badgeEl) {
+      const isPro = SubscriptionManager.isPro();
+      const plan = localStorage.getItem("geofrete_pro_plan") || "monthly";
+      if (isPro) {
+        if (plan === "trial") {
+          badgeEl.className = "mt-1 inline-block bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase";
+          badgeEl.textContent = `TRIAL VIP (${SubscriptionManager.getDaysRemaining()}d)`;
+        } else {
+          badgeEl.className = "mt-1 inline-block bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase";
+          badgeEl.textContent = `PRO ATIVO (${SubscriptionManager.getDaysRemaining()}d)`;
+        }
+      } else {
+        badgeEl.className = "mt-1 inline-block bg-slate-700/50 text-slate-300 border border-slate-600/30 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase";
+        badgeEl.textContent = "Plano Gratuito";
+      }
+    }
+  } else {
+    authLoginBtn.classList.remove("hidden");
+    authUserMenu.classList.add("hidden");
+  }
+}
+
+// Close user dropdown if clicked outside
+document.addEventListener("click", (e) => {
+  const container = document.getElementById("headerAuthContainer");
+  const menu = document.getElementById("userDropdownMenu");
+  if (container && menu && !container.contains(e.target)) {
+    menu.classList.add("hidden");
+  }
+});
