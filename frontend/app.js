@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initMap();
   initLucide();
   loadSettings();
+  checkAdminStatus();
 
   // Check URL query parameters for payment return (Stripe/Mercado Pago webhook or redirect)
   const urlParams = new URLSearchParams(window.location.search);
@@ -179,25 +180,127 @@ function updateModeUI(mode) {
   const banner = document.getElementById("modeBanner");
 
   if (mode === "api") {
-    badge.textContent = "Motor: API FastAPI";
-    banner.innerHTML = `
-      <div class="flex items-center space-x-2">
-        <i data-lucide="server" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
-        <span><strong>Modo API Backend:</strong> Otimização delegada ao motor Google OR-Tools + Celery.</span>
-      </div>
-      <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="text-blue-400 hover:underline font-semibold ml-2 flex-shrink-0">Alterar</button>
-    `;
+    if (badge) badge.textContent = "Motor: API FastAPI";
+    if (banner) {
+      banner.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <i data-lucide="server" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+          <span><strong>Modo API Backend:</strong> Otimização delegada ao motor Google OR-Tools + Celery.</span>
+        </div>
+        <button onclick="openAdminSettings()" class="text-blue-400 hover:underline font-semibold ml-2 flex-shrink-0">Alterar</button>
+      `;
+    }
   } else {
-    badge.textContent = "Motor: Navegador (Offline)";
-    banner.innerHTML = `
-      <div class="flex items-center space-x-2">
-        <i data-lucide="info" class="w-4 h-4 text-blue-400 flex-shrink-0"></i>
-        <span><strong>GitHub Pages:</strong> Executando motor TSP 2-opt em tempo real no seu navegador.</span>
-      </div>
-      <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="text-blue-400 hover:underline font-semibold ml-2 flex-shrink-0">Configurar</button>
-    `;
+    if (badge) badge.textContent = "Motor: Navegador (Offline)";
+    if (banner) {
+      banner.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <i data-lucide="info" class="w-4 h-4 text-blue-400 flex-shrink-0"></i>
+          <span><strong>GitHub Pages:</strong> Executando motor TSP 2-opt em tempo real no seu navegador.</span>
+        </div>
+        <button onclick="openAdminSettings()" class="text-blue-400 hover:underline font-semibold ml-2 flex-shrink-0">Configurar</button>
+      `;
+    }
   }
   initLucide();
+}
+
+// -------------------------------------------------------------
+// ADMIN ACCESS CONTROL (Private to Owner / Manager)
+// -------------------------------------------------------------
+let logoSecretTapCount = 0;
+let logoSecretTapTimer = null;
+
+function checkAdminStatus() {
+  const urlParams = new URLSearchParams(window.location.search);
+  // Allow activation via query parameters: ?admin, ?owner, ?gestor
+  if (urlParams.has("admin") || urlParams.has("owner") || urlParams.has("gestor")) {
+    localStorage.setItem("girarota_admin_unlocked", "true");
+    showPaymentToast("🛡️ Painel de Administrador desbloqueado!");
+  }
+
+  const isAdmin = localStorage.getItem("girarota_admin_unlocked") === "true";
+  setAdminUI(isAdmin);
+  return isAdmin;
+}
+
+function setAdminUI(isAdmin) {
+  const adminBtn = document.getElementById("adminSettingsBtn");
+  const dropdownSettingsBtn = document.getElementById("userDropdownSettings");
+
+  if (adminBtn) {
+    if (isAdmin) {
+      adminBtn.classList.remove("hidden");
+    } else {
+      adminBtn.classList.add("hidden");
+    }
+  }
+
+  if (dropdownSettingsBtn) {
+    if (isAdmin) {
+      dropdownSettingsBtn.classList.remove("hidden");
+    } else {
+      dropdownSettingsBtn.classList.add("hidden");
+    }
+  }
+}
+
+function openAdminSettings() {
+  const isAdmin = localStorage.getItem("girarota_admin_unlocked") === "true";
+  if (!isAdmin) {
+    promptAdminPassword();
+    return;
+  }
+  const modal = document.getElementById("settingsModal");
+  if (modal) {
+    modal.classList.remove("hidden");
+    initLucide();
+  }
+}
+
+function handleLogoSecretClick() {
+  logoSecretTapCount++;
+  if (logoSecretTapTimer) clearTimeout(logoSecretTapTimer);
+
+  logoSecretTapTimer = setTimeout(() => {
+    logoSecretTapCount = 0;
+  }, 2000);
+
+  if (logoSecretTapCount >= 3) {
+    logoSecretTapCount = 0;
+    promptAdminPassword();
+  }
+}
+
+function promptAdminPassword() {
+  const pass = window.prompt("🔐 Painel Restrito do Administrador\nDigite a senha mestre para acessar as configurações:");
+  if (pass === null) return; // Cancelled
+
+  const cleanPass = pass.trim().toLowerCase();
+  const validPasswords = ["girarota2026", "admin", "criptografia", "criptografia.app"];
+
+  if (validPasswords.includes(cleanPass)) {
+    localStorage.setItem("girarota_admin_unlocked", "true");
+    setAdminUI(true);
+    showPaymentToast("🔓 Acesso de Administrador liberado com sucesso!");
+    const modal = document.getElementById("settingsModal");
+    if (modal) {
+      modal.classList.remove("hidden");
+      initLucide();
+    }
+  } else {
+    alert("❌ Senha incorreta. Acesso restrito ao gestor do GiraRota.");
+  }
+}
+
+function lockAdminMode() {
+  localStorage.removeItem("girarota_admin_unlocked");
+  setAdminUI(false);
+  const modal = document.getElementById("settingsModal");
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+  showPaymentToast("🔒 Painel de Administrador bloqueado e ocultado!");
 }
 
 // -------------------------------------------------------------

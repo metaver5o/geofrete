@@ -126,7 +126,7 @@
   <!-- Header -->
   <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
+      <div onclick="handleLogoSecretClick()" class="flex items-center space-x-3 cursor-pointer select-none" title="GiraRota">
         <div class="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-emerald-500/20 border border-emerald-500/30 flex-shrink-0 bg-slate-900">
           <img src="assets/logo.png" alt="GiraRota" class="w-full h-full object-cover">
         </div>
@@ -148,7 +148,7 @@
         </div>
       </div>
 
-      <!-- Status Badge, Social Auth & Settings -->
+      <!-- Status Badge, Social Auth & Admin Settings -->
       <div class="flex items-center space-x-2">
         <div class="bg-emerald-950/60 border border-emerald-700/60 text-emerald-400 px-3 py-1 rounded-lg text-xs font-semibold items-center space-x-1.5 hidden sm:flex">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -187,9 +187,9 @@
                   <i data-lucide="crown" class="w-3.5 h-3.5 text-amber-400"></i>
                   <span>Minha Assinatura / Planos</span>
                 </button>
-                <button onclick="document.getElementById('settingsModal').classList.remove('hidden'); toggleUserDropdown();" class="w-full text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 flex items-center space-x-2 transition">
-                  <i data-lucide="sliders" class="w-3.5 h-3.5 text-slate-400"></i>
-                  <span>Configurações</span>
+                <button id="userDropdownSettings" onclick="openAdminSettings(); toggleUserDropdown();" class="hidden w-full text-left py-1.5 px-2 rounded-lg hover:bg-slate-800 flex items-center space-x-2 transition text-amber-400 font-semibold">
+                  <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+                  <span>Painel Admin (Restrito)</span>
                 </button>
               </div>
               <div class="border-t border-slate-800 pt-1.5">
@@ -202,8 +202,10 @@
           </div>
         </div>
 
-        <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg text-xs font-medium border border-slate-700 transition" title="Configurações">
-          <i data-lucide="sliders" class="w-4 h-4"></i>
+        <!-- Admin Settings Button (Hidden from public by default) -->
+        <button id="adminSettingsBtn" onclick="openAdminSettings()" class="hidden bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 py-1.5 px-2.5 rounded-xl text-xs font-bold border border-amber-500/30 transition flex items-center space-x-1.5 shadow" title="Painel do Administrador">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-400"></i>
+          <span class="text-[11px]">Admin</span>
         </button>
       </div>
     </div>
@@ -902,17 +904,20 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
   <!-- Settings / System Configuration Modal -->
   <div id="settingsModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-      <div class="flex items-center justify-between">
-        <h3 class="font-bold text-base text-white flex items-center space-x-2">
-          <i data-lucide="sliders" class="w-5 h-5 text-brand-500"></i>
-          <span>Configurações do Sistema</span>
-        </h3>
-        <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="text-slate-400 hover:text-white">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="font-bold text-base text-white flex items-center space-x-2">
+            <i data-lucide="shield-alert" class="w-5 h-5 text-amber-400"></i>
+            <span>Painel do Administrador</span>
+          </h3>
+          <p class="text-[11px] text-amber-400/80">Configurações restritas ao gestor do sistema</p>
+        </div>
+        <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <div class="space-y-3 text-xs text-slate-300">
+      <div class="space-y-3 text-xs text-slate-300 max-h-[70vh] overflow-y-auto pr-1">
         <div class="p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl space-y-1">
           <div class="flex items-center space-x-2 text-emerald-400 font-bold">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -995,9 +1000,14 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
         </div>
       </div>
 
-      <div class="flex justify-end space-x-2 pt-2">
-        <button onclick="saveSettings()" class="bg-brand-600 hover:bg-brand-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
-          Salvar
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <button onclick="lockAdminMode()" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold px-3 py-1.5 rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer">
+          <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+          <span>Bloquear &amp; Ocultar</span>
+        </button>
+        <button onclick="saveSettings()" class="bg-brand-600 hover:bg-brand-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition flex items-center space-x-1.5 cursor-pointer">
+          <i data-lucide="save" class="w-3.5 h-3.5"></i>
+          <span>Salvar Alterações</span>
         </button>
       </div>
     </div>
@@ -1023,6 +1033,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
