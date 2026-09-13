@@ -190,34 +190,9 @@
   <!-- Header -->
   <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div onclick="handleLogoSecretClick()" class="flex items-center space-x-3 cursor-pointer select-none group gf-logo-container" title="GiraRota (GeoFrete)">
-        <div class="relative w-11 h-11 rounded-2xl p-0.5 bg-gradient-to-br from-emerald-500/30 via-slate-900 to-amber-500/20 border border-emerald-500/40 flex items-center justify-center shadow-lg shadow-emerald-950/60 flex-shrink-0 group-hover:border-emerald-400 group-hover:shadow-emerald-500/20 transition-all duration-300">
-          <svg class="w-full h-full gf-glow-effect p-1" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="gfGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#34d399" />
-                <stop offset="100%" stop-color="#fbbf24" />
-              </linearGradient>
-              <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#10b981" stop-opacity="1" />
-                <stop offset="40%" stop-color="#06b6d4" stop-opacity="0.15" />
-                <stop offset="80%" stop-color="#f59e0b" stop-opacity="1" />
-                <stop offset="100%" stop-color="#34d399" stop-opacity="1" />
-              </linearGradient>
-            </defs>
-            <!-- Orbit Track Rotating Around GF -->
-            <g class="gf-logo-orbit">
-              <circle cx="24" cy="24" r="20" stroke="url(#orbitGrad)" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="50 20 18 16" />
-              <!-- Rotating GPS Pin / Courier Node on the Orbit -->
-              <circle cx="44" cy="24" r="3.2" fill="#34d399" filter="drop-shadow(0 0 3px #10b981)" />
-              <circle cx="44" cy="24" r="1.4" fill="#ffffff" />
-            </g>
-            <!-- Stylized Geometric GF Monogram -->
-            <!-- G -->
-            <path d="M 21 16 H 14 C 11.5 16 9.5 18 9.5 20.5 V 27.5 C 9.5 30 11.5 32 14 32 H 20 C 21.2 32 22 31 22 29.8 V 24 H 16" stroke="url(#gfGrad)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
-            <!-- F -->
-            <path d="M 27 32 V 16 H 38.5 M 27 23.5 H 35" stroke="url(#gfGrad)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+      <div onclick="handleLogoSecretClick()" class="flex items-center space-x-3 cursor-pointer select-none group" title="GiraRota">
+        <div class="relative w-11 h-11 rounded-2xl overflow-hidden shadow-lg shadow-emerald-500/20 border border-emerald-500/40 flex-shrink-0 bg-slate-900 group-hover:border-emerald-400 group-hover:shadow-emerald-500/40 transition-all duration-300">
+          <img src="assets/logo-animated.gif" alt="GiraRota" class="w-full h-full object-cover">
         </div>
         <div>
           <div class="flex items-center space-x-2 flex-wrap gap-y-1">
@@ -1483,6 +1458,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=19"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>
