@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>GEOFRETE | Roteirização Inteligente Last-Mile</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="description" content="Otimizador de rotas de entrega last-mile para entregadores autônomos. Escaneamento em lote, geocodificação e TSP.">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS & JS for OpenStreetMap -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    #map {
+      height: 380px;
+      width: 100%;
+      border-radius: 0.75rem;
+      z-index: 10;
+    }
+    .leaflet-popup-content-wrapper {
+      background: #1e293b;
+      color: #f8fafc;
+      border-radius: 0.5rem;
+    }
+    .leaflet-popup-tip {
+      background: #1e293b;
+    }
+    /* Numbered stop pins */
+    .stop-marker {
+      background: #2563eb;
+      color: white;
+      border: 2px solid white;
+      border-radius: 50%;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5);
+    }
+    .origin-marker {
+      background: #10b981;
+      color: white;
+      border: 2px solid white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased">
+
+  <!-- Header -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-brand-600 p-2 rounded-xl text-white shadow-lg shadow-brand-600/30">
+          <i data-lucide="navigation" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-xl font-black tracking-tight text-white">GEOFRETE</h1>
+            <span class="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full font-semibold border border-amber-500/30">
+              R$ 49,99/mês
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Roteirizador Last-Mile para Entregadores</p>
+        </div>
+      </div>
+
+      <!-- Settings / Mode Switcher -->
+      <div class="flex items-center space-x-2">
+        <button id="settingsBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 border border-slate-700 transition">
+          <i data-lucide="settings-2" class="w-4 h-4"></i>
+          <span id="modeBadge" class="hidden sm:inline">Motor: Navegador</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-5xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
+
+    <!-- Mode Alert Banner -->
+    <div id="modeBanner" class="bg-blue-950/60 border border-blue-800/80 rounded-xl p-3 flex items-center justify-between text-xs text-blue-200">
+      <div class="flex items-center space-x-2">
+        <i data-lucide="info" class="w-4 h-4 text-blue-400 flex-shrink-0"></i>
+        <span>
+          <strong>GitHub Pages:</strong> Executando motor TSP 2-opt em tempo real no seu navegador.
+          <span class="hidden md:inline text-blue-300">Conecte à sua API FastAPI para usar o Google OR-Tools.</span>
+        </span>
+      </div>
+      <button onclick="document.getElementById('settingsModal').classList.remove('hidden')" class="text-blue-400 hover:underline font-semibold ml-2 flex-shrink-0">Configurar</button>
+    </div>
+
+    <!-- Top Action Cards -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left Column: Input & Controls (5 cols) -->
+      <div class="lg:col-span-5 space-y-4">
+        
+        <!-- Batch Input Panel -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-slate-200 flex items-center space-x-2">
+              <i data-lucide="scan-line" class="w-5 h-5 text-brand-500"></i>
+              <span>Pacotes da Rota</span>
+            </h2>
+            <span id="packageCountBadge" class="bg-slate-800 text-brand-400 text-xs px-2.5 py-1 rounded-full font-bold">
+              0 pacotes
+            </span>
+          </div>
+
+          <!-- Quick Sample Batches -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-slate-400">Carregar Lote de Demonstração:</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="loadSampleBatch('sp15')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 px-2 rounded-lg font-medium border border-slate-700 transition text-center">
+                São Paulo (15)
+              </button>
+              <button onclick="loadSampleBatch('sp30')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 px-2 rounded-lg font-medium border border-slate-700 transition text-center">
+                São Paulo (30)
+              </button>
+              <button onclick="loadSampleBatch('rj12')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 px-2 rounded-lg font-medium border border-slate-700 transition text-center">
+                Rio RJ (12)
+              </button>
+            </div>
+          </div>
+
+          <!-- Origin Location -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-semibold text-slate-400 flex items-center justify-between">
+              <span>Ponto de Partida (Depósito / Você):</span>
+              <button onclick="getCurrentLocation()" class="text-brand-400 hover:underline flex items-center space-x-1">
+                <i data-lucide="locate" class="w-3.5 h-3.5"></i>
+                <span>Usar Meu GPS</span>
+              </button>
+            </label>
+            <input type="text" id="originAddress" value="Praça da Sé - Centro Histórico, São Paulo - SP" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 transition">
+            <input type="hidden" id="originLat" value="-23.5505">
+            <input type="hidden" id="originLng" value="-46.6333">
+          </div>
+
+          <!-- Manual / OCR JSON & Text Input -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-slate-400">Dados Escaneados (OCR / Endereços):</label>
+              <button onclick="clearBatch()" class="text-red-400 hover:underline text-xs">Limpar</button>
+            </div>
+            <textarea id="rawLabelsInput" rows="6" placeholder="Cole aqui o texto OCR ou adicione um endereço por linha... Ex:
+Avenida Paulista, 1578 - Bela Vista, SP
+Rua Augusta, 1000 - Consolação, SP
+Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono focus:outline-none focus:border-brand-500 transition resize-none"></textarea>
+          </div>
+
+          <!-- Optimize CTA Button -->
+          <button id="optimizeBtn" onclick="runOptimization()" class="w-full bg-gradient-to-r from-brand-600 to-blue-600 hover:from-brand-500 hover:to-blue-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-brand-600/30 flex items-center justify-center space-x-2 transition transform active:scale-98">
+            <i data-lucide="zap" class="w-5 h-5"></i>
+            <span id="optimizeBtnText">Calcular Rota Ideal (TSP)</span>
+          </button>
+        </div>
+
+        <!-- Metric Summary Panel (hidden before optimization) -->
+        <div id="metricsPanel" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Resumo do Itinerário</h3>
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-2xl font-black text-brand-400" id="statStops">0</div>
+              <div class="text-xs text-slate-400 mt-1">Paradas</div>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-2xl font-black text-emerald-400" id="statDistance">0 km</div>
+              <div class="text-xs text-slate-400 mt-1">Distância</div>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <div class="text-2xl font-black text-amber-400" id="statTime">0 min</div>
+              <div class="text-xs text-slate-400 mt-1">Tempo Est.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Map & Route Itinerary (7 cols) -->
+      <div class="lg:col-span-7 space-y-4">
+        
+        <!-- Interactive Map -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-slate-200 flex items-center space-x-2 text-sm">
+              <i data-lucide="map" class="w-4 h-4 text-brand-500"></i>
+              <span>Mapa do Trajeto</span>
+            </h2>
+            <span class="text-xs text-slate-400 flex items-center space-x-1">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+              <span>Partida</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-brand-500 inline-block ml-2"></span>
+              <span>Entregas</span>
+            </span>
+          </div>
+          <div id="map"></div>
+        </div>
+
+        <!-- Ordered Itinerary List -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-slate-200 flex items-center space-x-2 text-sm">
+              <i data-lucide="list-ordered" class="w-4 h-4 text-brand-500"></i>
+              <span>Sequência de Entregas Otimizada</span>
+            </h2>
+            <span id="itineraryStatus" class="text-xs text-slate-500">Aguardando cálculo...</span>
+          </div>
+
+          <!-- Stops Container -->
+          <div id="stopsList" class="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+            <div class="text-center py-12 text-slate-500 text-xs">
+              <i data-lucide="package-search" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+              Carregue um lote de pacotes e clique em "Calcular Rota Ideal" para ver o itinerário ordenado.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Settings / API Configuration Modal -->
+  <div id="settingsModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg text-white flex items-center space-x-2">
+          <i data-lucide="sliders" class="w-5 h-5 text-brand-500"></i>
+          <span>Configuração de Motor</span>
+        </h3>
+        <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs text-slate-300">
+        <p>Escolha como deseja que as rotas sejam otimizadas:</p>
+
+        <div class="space-y-2">
+          <label class="flex items-start space-x-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-brand-500 transition">
+            <input type="radio" name="engineMode" value="standalone" checked class="mt-0.5 text-brand-600 focus:ring-brand-500">
+            <div>
+              <strong class="text-white block font-semibold">Motor In-Browser Standalone (Padrão GitHub Pages)</strong>
+              <span class="text-slate-400">Resolve rotas TSP 2-opt diretamente no seu navegador. Não requer backend ativo nem configurações.</span>
+            </div>
+          </label>
+
+          <label class="flex items-start space-x-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-brand-500 transition">
+            <input type="radio" name="engineMode" value="api" class="mt-0.5 text-brand-600 focus:ring-brand-500">
+            <div>
+              <strong class="text-white block font-semibold">API Backend GEOFRETE (FastAPI + Google OR-Tools)</strong>
+              <span class="text-slate-400">Delega o processamento para seu servidor com PostgreSQL/PostGIS, Celery Workers e OR-Tools.</span>
+            </div>
+          </label>
+        </div>
+
+        <div id="apiUrlContainer" class="space-y-1.5 opacity-50 pointer-events-none transition">
+          <label class="font-semibold text-slate-400">URL da API GEOFRETE:</label>
+          <input type="text" id="apiEndpointInput" value="http://localhost:8000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono">
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="saveSettings()" class="bg-brand-600 hover:bg-brand-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
+          Salvar Configurações
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-slate-900 border-t border-slate-800 py-4 text-center text-xs text-slate-500">
+    <div class="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div>GEOFRETE &copy; 2026 - Roteirização Last-Mile Inteligente</div>
+      <div class="flex items-center space-x-4">
+        <span>Compatível com Waze & Google Maps</span>
+        <a href="https://github.com" target="_blank" class="hover:text-slate-300">GitHub Pages</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
