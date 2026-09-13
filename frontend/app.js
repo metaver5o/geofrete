@@ -282,10 +282,10 @@ function promptAdminPassword() {
   const pass = window.prompt("🔐 Painel Restrito do Administrador\nDigite a senha mestre para acessar as configurações:");
   if (pass === null) return; // Cancelled
 
-  const cleanPass = pass.trim().toLowerCase();
-  const validPasswords = ["girarota2026", "admin", "criptografia", "criptografia.app"];
+  const cleanPass = pass.trim();
+  const validPasswords = ["..CRIPTOGRAFIA2026!"];
 
-  if (validPasswords.includes(cleanPass)) {
+  if (validPasswords.includes(cleanPass) || cleanPass.toUpperCase() === "..CRIPTOGRAFIA2026!") {
     localStorage.setItem("girarota_admin_unlocked", "true");
     setAdminUI(true);
     showPaymentToast("🔓 Acesso de Administrador liberado com sucesso!");
