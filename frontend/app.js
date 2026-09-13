@@ -69,9 +69,11 @@ function initMap() {
     scrollWheelZoom: false,
   }).setView([currentOrigin.lat, currentOrigin.lng], 13);
 
-  // Official CARTO Basemaps (Public open tiles)
+  const cartoApiKey = "cb1_3iva_1_97907d15ae0df4f70c756a74";
+
+  // Official CARTO Basemaps authenticated with public client key
   const voyagerLayer = L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+    `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${cartoApiKey}`,
     {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -81,12 +83,21 @@ function initMap() {
   );
 
   const darkLayer = L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`,
     {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: "abcd",
       maxZoom: 20,
+    }
+  );
+
+  const osmLayer = L.tileLayer(
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
     }
   );
 
@@ -99,6 +110,7 @@ function initMap() {
       {
         "🗺️ CARTO Voyager": voyagerLayer,
         "🌙 CARTO Noturno": darkLayer,
+        "🌐 OpenStreetMap": osmLayer,
       },
       null,
       { position: "topright" }
