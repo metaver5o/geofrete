@@ -3133,6 +3133,19 @@ function openSubscriptionModal() {
   modal.classList.remove("hidden");
   updateSubscriptionUI();
   selectPlan(currentSelectedPlan || "monthly");
+
+  const emailInput = document.getElementById("subscriberEmailInput");
+  if (emailInput) {
+    const savedEmail =
+      localStorage.getItem("geofrete_user_email") ||
+      localStorage.getItem("geofrete_trial_email") ||
+      localStorage.getItem("geofrete_privy_email") ||
+      "";
+    if (savedEmail && !emailInput.value) {
+      emailInput.value = savedEmail;
+    }
+  }
+
   if (typeof lucide !== "undefined") lucide.createIcons();
 }
 
@@ -3346,10 +3359,14 @@ const MercadoPagoManager = {
     }
   },
 
-  startPolling() {
+  startPolling(targetOrderRef = null, startedAt = null) {
     if (this.pollingTimer) clearInterval(this.pollingTimer);
+
+    const ref = targetOrderRef || sessionStorage.getItem("girarota_current_order_ref");
+    const startTime = startedAt || Number(sessionStorage.getItem("girarota_checkout_started_at")) || Date.now();
+
     this.pollingTimer = setInterval(async () => {
-      const found = await this.checkRecentApprovedPayment(true);
+      const found = await this.checkRecentApprovedPayment(true, ref, startTime);
       if (found) {
         this.stopPolling();
       }
@@ -3368,16 +3385,19 @@ const MercadoPagoManager = {
     }
   },
 
-  async checkRecentApprovedPayment(quiet = false) {
+  async checkRecentApprovedPayment(quiet = false, targetOrderRef = null, startedAt = null) {
     const token = this.getAccessToken();
     if (!token) {
       if (!quiet) showPaymentToast("Token do Mercado Pago não configurado.");
       return false;
     }
 
+    const orderRef = targetOrderRef || sessionStorage.getItem("girarota_current_order_ref");
+    const checkoutStartedAt = startedAt || Number(sessionStorage.getItem("girarota_checkout_started_at")) || (Date.now() - 300000);
+
     try {
       if (!quiet) showPaymentToast("🔍 Consultando Mercado Pago em tempo real...");
-      const resp = await fetch("https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&limit=10", {
+      const resp = await fetch("https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&limit=15", {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
@@ -3397,33 +3417,35 @@ const MercadoPagoManager = {
       }
 
       const usedPayments = JSON.parse(localStorage.getItem("girarota_processed_payments") || "[]");
-      const now = Date.now();
 
       for (const p of results) {
         if (p.status === "approved") {
           const pid = String(p.id);
-          if (!usedPayments.includes(pid)) {
-            const paymentTime = new Date(p.date_approved || p.date_created).getTime();
-            // Approved in last 4 hours
-            if (now - paymentTime < 4 * 60 * 60 * 1000) {
-              usedPayments.push(pid);
-              localStorage.setItem("girarota_processed_payments", JSON.stringify(usedPayments));
+          if (usedPayments.includes(pid)) continue;
 
-              let planId = currentSelectedPlan || "monthly";
-              if (p.transaction_amount >= 149) planId = "annual";
-              else if (p.transaction_amount >= 99) planId = "semiannual";
-              else if (p.transaction_amount >= 49) planId = "quarterly";
-              else if (p.transaction_amount >= 20) planId = "monthly";
-              else if (p.transaction_amount >= 4) planId = "daily";
+          const paymentCreated = new Date(p.date_created).getTime();
+          const isExactOrderMatch = orderRef && p.external_reference === orderRef;
+          // Only accept payments created after checkout was initiated (with 15s clock tolerance)
+          const isFreshPayment = paymentCreated >= (checkoutStartedAt - 15000);
 
-              const plan = PLANS_CONFIG[planId] || PLANS_CONFIG.monthly;
-              SubscriptionManager.activatePro(plan.id, plan.days, `MP-${pid}`);
+          if (isExactOrderMatch || isFreshPayment) {
+            usedPayments.push(pid);
+            localStorage.setItem("girarota_processed_payments", JSON.stringify(usedPayments));
 
-              showPaymentToast(`🎉 Pagamento aprovado no Mercado Pago (${p.payment_method_id ? p.payment_method_id.toUpperCase() : "PIX"})! Assinatura ${plan.name} liberada.`);
-              playFanfareBeep();
-              closeSubscriptionModal();
-              return true;
-            }
+            let planId = currentSelectedPlan || "monthly";
+            if (p.transaction_amount >= 149) planId = "annual";
+            else if (p.transaction_amount >= 99) planId = "semiannual";
+            else if (p.transaction_amount >= 49) planId = "quarterly";
+            else if (p.transaction_amount >= 20) planId = "monthly";
+            else if (p.transaction_amount >= 4) planId = "daily";
+
+            const plan = PLANS_CONFIG[planId] || PLANS_CONFIG.monthly;
+            SubscriptionManager.activatePro(plan.id, plan.days, `MP-${pid}`);
+
+            showPaymentToast(`🎉 Pagamento aprovado no Mercado Pago (${p.payment_method_id ? p.payment_method_id.toUpperCase() : "PIX"})! Assinatura ${plan.name} liberada.`);
+            playFanfareBeep();
+            closeSubscriptionModal();
+            return true;
           }
         }
       }
@@ -3462,8 +3484,33 @@ const MercadoPagoManager = {
       return;
     }
 
+    // Capture subscriber email to identify who paid
+    const emailInput = document.getElementById("subscriberEmailInput");
+    let userEmail = emailInput ? emailInput.value.trim() : "";
+    if (!userEmail) {
+      userEmail = localStorage.getItem("geofrete_user_email") || localStorage.getItem("geofrete_trial_email") || "";
+    }
+
+    if (!userEmail || !userEmail.includes("@")) {
+      alert("Por favor, preencha seu e-mail no campo antes de gerar o Pix. Ele identificará o seu pagamento e enviará seu recibo.");
+      if (emailInput) {
+        emailInput.focus();
+        emailInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return;
+    }
+
+    localStorage.setItem("geofrete_user_email", userEmail);
+
+    // Unique order reference for cross-matching
+    const now = Date.now();
+    const orderRef = `GIRA-${plan.id}-${now}-${Math.floor(1000 + Math.random() * 9000)}`;
+    sessionStorage.setItem("girarota_checkout_started_at", now.toString());
+    sessionStorage.setItem("girarota_current_order_ref", orderRef);
+    sessionStorage.setItem("girarota_subscriber_email", userEmail);
+
     try {
-      showPaymentToast("Gerando link de pagamento Mercado Pago...");
+      showPaymentToast("Gerando QR Code Pix no Mercado Pago...");
       const returnUrl = `${window.location.origin}${window.location.pathname}?plan=${plan.id}`;
 
       const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
@@ -3475,20 +3522,28 @@ const MercadoPagoManager = {
         body: JSON.stringify({
           items: [
             {
-              title: `GiraRota PRO - Plano ${plan.name}`,
-              description: `Assinatura de rotas ilimitadas do GiraRota (${plan.days} dias)`,
+              id: plan.id,
+              title: `GiraRota PRO - Plano ${plan.name} (${userEmail})`,
+              description: `Assinatura GiraRota PRO (${plan.days} dias) - ${userEmail}`,
               quantity: 1,
               currency_id: "BRL",
               unit_price: plan.price,
             },
           ],
+          payer: {
+            email: userEmail,
+          },
+          external_reference: orderRef,
           back_urls: {
-            success: `${returnUrl}&status=approved`,
+            success: `${returnUrl}&status=approved&ext_ref=${encodeURIComponent(orderRef)}`,
             failure: `${returnUrl}&status=failure`,
-            pending: `${returnUrl}&status=pending`,
+            pending: `${returnUrl}&status=pending&ext_ref=${encodeURIComponent(orderRef)}`,
           },
           auto_return: "approved",
           statement_descriptor: "GIRAROTA PRO",
+          payment_methods: {
+            default_payment_method_id: "pix",
+          },
         }),
       });
 
@@ -3503,11 +3558,10 @@ const MercadoPagoManager = {
         // Open checkout in new tab so GiraRota actively polls in background!
         const win = window.open(checkoutUrl, "_blank");
         if (!win) {
-          // If popup blocker intervened, redirect same window
           window.location.href = checkoutUrl;
         } else {
-          this.startPolling();
-          showPaymentToast("⚡ Mercado Pago aberto! Assim que pagar seu Pix/Cartão, o app liberará na hora.");
+          this.startPolling(orderRef, now);
+          showPaymentToast(`⚡ Pix gerado para ${userEmail}! Assim que pagar no app do seu banco, o GiraRota libera na hora.`);
         }
       } else {
         throw new Error("URL de checkout do Mercado Pago não retornada.");
@@ -3518,27 +3572,78 @@ const MercadoPagoManager = {
     }
   },
 
+  async pollSpecificPayment(paymentId, planId = "monthly") {
+    const token = this.getAccessToken();
+    if (!token || !paymentId) return;
+
+    let attempts = 0;
+    const maxAttempts = 60; // 60 * 3s = 3 minutes
+
+    const timer = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(timer);
+        return;
+      }
+
+      try {
+        const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (res.ok) {
+          const p = await res.json();
+          if (p.status === "approved") {
+            clearInterval(timer);
+
+            const usedPayments = JSON.parse(localStorage.getItem("girarota_processed_payments") || "[]");
+            const pid = String(p.id);
+            if (!usedPayments.includes(pid)) {
+              usedPayments.push(pid);
+              localStorage.setItem("girarota_processed_payments", JSON.stringify(usedPayments));
+            }
+
+            const plan = PLANS_CONFIG[planId] || PLANS_CONFIG.monthly;
+            SubscriptionManager.activatePro(plan.id, plan.days, `MP-${pid}`);
+
+            showPaymentToast(`🎉 Pix de R$ ${p.transaction_amount} confirmado! GiraRota PRO liberado.`);
+            playFanfareBeep();
+            closeSubscriptionModal();
+          }
+        }
+      } catch (err) {
+        console.warn("Polling payment ID error:", err);
+      }
+    }, 3000);
+  },
+
   verifyReturnFromURL() {
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const collectionStatus = urlParams.get("collection_status") || urlParams.get("status");
-      const paymentId = urlParams.get("payment_id") || urlParams.get("collection_id") || urlParams.get("preference_id");
+      const paymentId = urlParams.get("payment_id") || urlParams.get("collection_id");
       const planId = urlParams.get("plan") || "monthly";
 
-      if (collectionStatus === "approved" && paymentId) {
+      if (paymentId) {
         const usedPayments = JSON.parse(localStorage.getItem("girarota_processed_payments") || "[]");
 
-        if (usedPayments.includes(paymentId)) {
-          console.log(`Payment ID ${paymentId} already credited.`);
-        } else {
-          usedPayments.push(paymentId);
-          localStorage.setItem("girarota_processed_payments", JSON.stringify(usedPayments));
+        if (collectionStatus === "approved") {
+          if (!usedPayments.includes(String(paymentId))) {
+            usedPayments.push(String(paymentId));
+            localStorage.setItem("girarota_processed_payments", JSON.stringify(usedPayments));
 
-          const plan = PLANS_CONFIG[planId] || PLANS_CONFIG.monthly;
-          SubscriptionManager.activatePro(plan.id, plan.days, `MP-${paymentId}`);
+            const plan = PLANS_CONFIG[planId] || PLANS_CONFIG.monthly;
+            SubscriptionManager.activatePro(plan.id, plan.days, `MP-${paymentId}`);
 
-          showPaymentToast(`🎉 Pagamento aprovado pelo Mercado Pago! Assinatura ${plan.name} liberada.`);
-          playFanfareBeep();
+            showPaymentToast(`🎉 Pagamento aprovado pelo Mercado Pago! Assinatura ${plan.name} liberada.`);
+            playFanfareBeep();
+          }
+        } else if (collectionStatus === "pending") {
+          // User scanned/generated Pix and clicked return to merchant while still pending
+          showPaymentToast(`⏳ Pix registrado (ID: ${paymentId})! Confirmando compensação bancária em tempo real...`);
+          this.pollSpecificPayment(paymentId, planId);
         }
 
         // Clean query parameters from URL

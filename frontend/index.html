@@ -164,6 +164,24 @@
       height: 100vh !important;
       width: 100vw !important;
       border-radius: 0 !important;
+    /* GF Animated Rotating Logo */
+    @keyframes orbitSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.4)) drop-shadow(0 0 10px rgba(52, 211, 153, 0.2)); }
+      50% { filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8)) drop-shadow(0 0 18px rgba(52, 211, 153, 0.5)); }
+    }
+    .gf-logo-orbit {
+      animation: orbitSpin 5s linear infinite;
+      transform-origin: 24px 24px;
+    }
+    .gf-logo-container:hover .gf-logo-orbit {
+      animation: orbitSpin 1.8s linear infinite;
+    }
+    .gf-glow-effect {
+      animation: pulseGlow 3s ease-in-out infinite;
     }
   </style>
 </head>
@@ -172,9 +190,34 @@
   <!-- Header -->
   <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div onclick="handleLogoSecretClick()" class="flex items-center space-x-3 cursor-pointer select-none" title="GiraRota">
-        <div class="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-emerald-500/20 border border-emerald-500/30 flex-shrink-0 bg-slate-900">
-          <img src="assets/logo.png" alt="GiraRota" class="w-full h-full object-cover">
+      <div onclick="handleLogoSecretClick()" class="flex items-center space-x-3 cursor-pointer select-none group gf-logo-container" title="GiraRota (GeoFrete)">
+        <div class="relative w-11 h-11 rounded-2xl p-0.5 bg-gradient-to-br from-emerald-500/30 via-slate-900 to-amber-500/20 border border-emerald-500/40 flex items-center justify-center shadow-lg shadow-emerald-950/60 flex-shrink-0 group-hover:border-emerald-400 group-hover:shadow-emerald-500/20 transition-all duration-300">
+          <svg class="w-full h-full gf-glow-effect p-1" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gfGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#34d399" />
+                <stop offset="100%" stop-color="#fbbf24" />
+              </linearGradient>
+              <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#10b981" stop-opacity="1" />
+                <stop offset="40%" stop-color="#06b6d4" stop-opacity="0.15" />
+                <stop offset="80%" stop-color="#f59e0b" stop-opacity="1" />
+                <stop offset="100%" stop-color="#34d399" stop-opacity="1" />
+              </linearGradient>
+            </defs>
+            <!-- Orbit Track Rotating Around GF -->
+            <g class="gf-logo-orbit">
+              <circle cx="24" cy="24" r="20" stroke="url(#orbitGrad)" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="50 20 18 16" />
+              <!-- Rotating GPS Pin / Courier Node on the Orbit -->
+              <circle cx="44" cy="24" r="3.2" fill="#34d399" filter="drop-shadow(0 0 3px #10b981)" />
+              <circle cx="44" cy="24" r="1.4" fill="#ffffff" />
+            </g>
+            <!-- Stylized Geometric GF Monogram -->
+            <!-- G -->
+            <path d="M 21 16 H 14 C 11.5 16 9.5 18 9.5 20.5 V 27.5 C 9.5 30 11.5 32 14 32 H 20 C 21.2 32 22 31 22 29.8 V 24 H 16" stroke="url(#gfGrad)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+            <!-- F -->
+            <path d="M 27 32 V 16 H 38.5 M 27 23.5 H 35" stroke="url(#gfGrad)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </div>
         <div>
           <div class="flex items-center space-x-2 flex-wrap gap-y-1">
@@ -1070,6 +1113,21 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
               </p>
             </div>
 
+            <!-- Subscriber Email for Pix Identification & Receipts -->
+            <div class="text-left space-y-1 my-2 bg-slate-900/80 border border-slate-800 rounded-xl p-2.5 shadow-inner">
+              <label class="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                <span class="flex items-center space-x-1">
+                  <i data-lucide="mail" class="w-3.5 h-3.5 text-emerald-400"></i>
+                  <span>Seu E-mail para Recibo e Identificação:</span>
+                </span>
+                <span class="text-[10px] text-emerald-400/90 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Identifica o Pix</span>
+              </label>
+              <input type="email" id="subscriberEmailInput" placeholder="seu.email@exemplo.com" class="w-full bg-slate-950 border border-slate-700/80 rounded-lg py-2 px-3 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium">
+              <p class="text-[10px] text-slate-500 leading-tight">
+                Esse e-mail aparecerá na descrição oficial do Pix e vinculará a aprovação instantânea à sua conta.
+              </p>
+            </div>
+
             <!-- Generate Pix Button -->
             <button onclick="MercadoPagoManager.openCheckout()" class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-900/40 flex items-center justify-center space-x-2 text-sm transition transform active:scale-98 cursor-pointer">
               <i data-lucide="qr-code" class="w-5 h-5 text-white"></i>
@@ -1425,6 +1483,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=18"></script>
+  <script src="app.js?v=19"></script>
 </body>
 </html>
