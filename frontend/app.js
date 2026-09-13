@@ -122,7 +122,7 @@ function loadSettings() {
   updateModeUI(mode);
 
   // Load Admin Payment Settings
-  const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "suporte@girarota.com.br";
+  const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "pix@girarota.com";
   const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GIRAROTA BRASIL";
   const pixCity = localStorage.getItem("geofrete_admin_pix_city") || "CAMPO LARGO";
   const checkoutUrl = localStorage.getItem("geofrete_admin_checkout_url") || "https://mpago.la/girarota";
@@ -148,7 +148,7 @@ function saveSettings() {
   localStorage.setItem("geofrete_api_url", apiUrl);
 
   // Save Admin Payment Settings
-  const pixKey = (document.getElementById("adminPixKeyInput")?.value || "suporte@girarota.com.br").trim();
+  const pixKey = (document.getElementById("adminPixKeyInput")?.value || "pix@girarota.com").trim();
   const pixName = (document.getElementById("adminPixNameInput")?.value || "GIRAROTA BRASIL").trim();
   const pixCity = (document.getElementById("adminPixCityInput")?.value || "CAMPO LARGO").trim();
   const checkoutUrl = (document.getElementById("adminCheckoutUrlInput")?.value || "https://mpago.la/girarota").trim();
@@ -1747,10 +1747,13 @@ function selectPlan(planId) {
 
 function updatePixPayload() {
   const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
-  const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "suporte@geofrete.com.br";
-  const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GEOFRETE BRASIL";
+  const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "pix@girarota.com";
+  const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GIRAROTA BRASIL";
   const pixCity = localStorage.getItem("geofrete_admin_pix_city") || "CAMPO LARGO";
-  const txId = `GF${Date.now().toString().slice(-8)}`;
+  const txId = `GR${Date.now().toString().slice(-8)}`;
+
+  const keyDisplayEl = document.getElementById("pixModalKeyDisplay");
+  if (keyDisplayEl) keyDisplayEl.textContent = pixKey;
 
   const code = generatePixBRCode(pixKey, plan.price, pixName, pixCity, txId);
   const input = document.getElementById("pixCodeStringInput");
