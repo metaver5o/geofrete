@@ -1104,11 +1104,23 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
             Abra o app do seu banco (Nubank, Itaú, Inter, Mercado Pago, etc.) &gt; Escolha <strong>Pix Copia e Cola</strong> &gt; Cole o código.
           </p>
 
-          <!-- Primary CTA Button -->
-          <button onclick="confirmPixPayment()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-900/40 flex items-center justify-center space-x-2 transition transform active:scale-98">
-            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-            <span>Já Paguei / Ativar Acesso Imediato</span>
+          <!-- Mercado Pago Automated Payment Button -->
+          <button onclick="MercadoPagoManager.openCheckout()" class="w-full bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-500 hover:to-sky-500 text-white font-black py-3 px-4 rounded-xl shadow-lg shadow-blue-900/40 flex items-center justify-center space-x-2 transition transform active:scale-98 cursor-pointer">
+            <i data-lucide="shield-check" class="w-4 h-4 text-white"></i>
+            <span>Pagar com Mercado Pago (Pix / Cartão Automático)</span>
           </button>
+
+          <!-- Check Payment Status & WhatsApp Verification -->
+          <div class="flex items-center justify-between gap-2 pt-1">
+            <button onclick="checkManualPixPaymentStatus()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-3 rounded-xl border border-slate-700 text-xs flex items-center justify-center space-x-1.5 transition cursor-pointer">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span>Verificar Status do Pix</span>
+            </button>
+            <button onclick="openWhatsAppProofSupport()" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 font-bold py-2 px-3 rounded-xl border border-emerald-500/30 text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Enviar comprovante de transferência manual">
+              <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Enviar Comprovante</span>
+            </button>
+          </div>
         </div>
 
         <!-- TAB 2: VOUCHER / CHAVE DE LICENÇA -->
@@ -1116,13 +1128,13 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           <div class="space-y-1.5">
             <label class="text-xs font-bold text-slate-300">Insira seu código de ativação ou voucher de transportadora:</label>
             <div class="flex items-center space-x-2">
-              <input type="text" id="licenseKeyInput" placeholder="Ex: GIRAROTA-PRO-VIP" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:border-amber-500 focus:outline-none">
-              <button onclick="activateWithLicenseKey()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-4 py-2 rounded-xl transition">
+              <input type="text" id="licenseKeyInput" placeholder="Ex: GFPRO-XXXX-XXXX" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:border-amber-500 focus:outline-none">
+              <button onclick="activateWithLicenseKey()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-4 py-2 rounded-xl transition cursor-pointer">
                 Ativar
               </button>
             </div>
             <p class="text-[11px] text-slate-400">
-              Dica: Utilize a chave de demonstração <strong class="text-amber-300 font-mono">GIRAROTA-PRO-VIP</strong> para testar a ativação completa.
+              Vouchers corporativos ou de parcerias emitidos pela administração do GiraRota.
             </p>
           </div>
         </div>
@@ -1325,6 +1337,29 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           </div>
         </div>
 
+        <!-- Mercado Pago / Mercado Livre Gateway Configuration -->
+        <div class="border-t border-slate-800 pt-3 space-y-2">
+          <h4 class="font-bold text-slate-200 text-xs flex items-center space-x-1.5">
+            <i data-lucide="credit-card" class="w-3.5 h-3.5 text-blue-400"></i>
+            <span>Integração Mercado Pago (Mercado Livre)</span>
+          </h4>
+          <p class="text-slate-400 text-[11px]">
+            Conecte sua conta do <strong>Mercado Pago / Mercado Livre</strong> para cobrança automática com liberação imediata via Pix e Cartão.
+          </p>
+          <div class="space-y-1.5 pt-1">
+            <label class="font-semibold text-slate-400 text-[11px]">Access Token do Mercado Pago (Painel de Desenvolvedores):</label>
+            <input type="password" id="adminMpAccessTokenInput" value="" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="APP_USR-...">
+          </div>
+          <div class="space-y-1.5">
+            <label class="font-semibold text-slate-400 text-[11px]">Public Key do Mercado Pago:</label>
+            <input type="text" id="adminMpPublicKeyInput" value="" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="APP_USR-...">
+          </div>
+          <div class="space-y-1.5">
+            <label class="font-semibold text-slate-400 text-[11px]">Link de Checkout Mercado Pago Mensal (opcional / mpago.la):</label>
+            <input type="text" id="adminMpLinkMonthlyInput" value="" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="https://mpago.la/...">
+          </div>
+        </div>
+
         <!-- Social Auth & Privy Configuration -->
         <div class="border-t border-slate-800 pt-3 space-y-2">
           <h4 class="font-bold text-slate-200 text-xs flex items-center space-x-1.5">
@@ -1378,6 +1413,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

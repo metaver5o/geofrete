@@ -25,11 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSettings();
   checkAdminStatus();
 
-  // Check URL query parameters for payment return (Stripe/Mercado Pago webhook or redirect)
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("status") === "success" || urlParams.get("paid") === "true") {
-    SubscriptionManager.activatePro("monthly", 30, "CHECKOUT-REDIRECT");
-  }
+  // Verify return from Mercado Pago / Gateway checkout
+  MercadoPagoManager.verifyReturnFromURL();
 
   // Check and process referral link from URL
   ReferralManager.initReferralLinkFromURL();
@@ -152,6 +149,14 @@ function loadSettings() {
   const googleClientId = localStorage.getItem("geofrete_admin_google_client_id") || "";
   if (document.getElementById("adminPrivyAppIdInput")) document.getElementById("adminPrivyAppIdInput").value = privyAppId;
   if (document.getElementById("adminGoogleClientIdInput")) document.getElementById("adminGoogleClientIdInput").value = googleClientId;
+
+  // Load Mercado Pago Settings
+  const mpAccessToken = localStorage.getItem("geofrete_admin_mp_access_token") || "";
+  const mpPublicKey = localStorage.getItem("geofrete_admin_mp_public_key") || "";
+  const mpLinkMonthly = localStorage.getItem("geofrete_admin_mp_link_monthly") || "";
+  if (document.getElementById("adminMpAccessTokenInput")) document.getElementById("adminMpAccessTokenInput").value = mpAccessToken;
+  if (document.getElementById("adminMpPublicKeyInput")) document.getElementById("adminMpPublicKeyInput").value = mpPublicKey;
+  if (document.getElementById("adminMpLinkMonthlyInput")) document.getElementById("adminMpLinkMonthlyInput").value = mpLinkMonthly;
 }
 
 function saveSettings() {
@@ -169,6 +174,14 @@ function saveSettings() {
   localStorage.setItem("geofrete_admin_pix_key", pixKey);
   localStorage.setItem("geofrete_admin_pix_name", pixName);
   localStorage.setItem("geofrete_admin_pix_city", pixCity);
+
+  // Save Mercado Pago Settings
+  const mpAccessToken = (document.getElementById("adminMpAccessTokenInput")?.value || "").trim();
+  const mpPublicKey = (document.getElementById("adminMpPublicKeyInput")?.value || "").trim();
+  const mpLinkMonthly = (document.getElementById("adminMpLinkMonthlyInput")?.value || "").trim();
+  localStorage.setItem("geofrete_admin_mp_access_token", mpAccessToken);
+  localStorage.setItem("geofrete_admin_mp_public_key", mpPublicKey);
+  localStorage.setItem("geofrete_admin_mp_link_monthly", mpLinkMonthly);
 
   // Save Privy & Google Settings
   const privyAppId = (document.getElementById("adminPrivyAppIdInput")?.value || "cl_girarota_demo_2026").trim();
@@ -3185,40 +3198,161 @@ function copyPixCode() {
 }
 
 function confirmPixPayment() {
-  const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
-  SubscriptionManager.activatePro(plan.id, plan.days, `PIX-${Date.now()}`);
-
-  const ref = localStorage.getItem("girarota_referred_by");
-  if (ref) {
-    console.log(`Payment confirmed for user referred by: ${ref}`);
-  }
+  checkManualPixPaymentStatus();
 }
+
+function checkManualPixPaymentStatus() {
+  const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
+  showPaymentToast("⏳ Consultando confirmação bancária... Se transferiu manualmente, envie o comprovante pelo WhatsApp.");
+}
+
+function openWhatsAppProofSupport() {
+  const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
+  const msg = `Olá! Fiz a transferência Pix de ${plan.formatted} para ativar o plano ${plan.name} no GiraRota. Segue meu comprovante de pagamento:`;
+  const url = `https://api.whatsapp.com/send?phone=5541999999999&text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+}
+
+// -------------------------------------------------------------
+// MERCADO PAGO (MERCADO LIVRE) AUTOMATED CHECKOUT INTEGRATION
+// -------------------------------------------------------------
+const MercadoPagoManager = {
+  getAccessToken() {
+    return localStorage.getItem("geofrete_admin_mp_access_token") || "";
+  },
+
+  getPaymentLink(planId = "monthly") {
+    const customLink = localStorage.getItem(`geofrete_admin_mp_link_${planId}`);
+    if (customLink && customLink.trim()) return customLink.trim();
+
+    const generalLink = localStorage.getItem("geofrete_admin_mp_link_monthly");
+    if (generalLink && generalLink.trim()) return generalLink.trim();
+
+    return null;
+  },
+
+  async openCheckout(planId = null) {
+    const plan = PLANS_CONFIG[planId || currentSelectedPlan] || PLANS_CONFIG.monthly;
+    const directLink = this.getPaymentLink(plan.id);
+
+    if (directLink) {
+      window.open(directLink, "_blank");
+      showPaymentToast("Redirecionando para o checkout seguro do Mercado Pago...");
+      return;
+    }
+
+    const token = this.getAccessToken();
+    if (!token) {
+      const isAdmin = localStorage.getItem("girarota_admin_unlocked") === "true";
+      if (isAdmin) {
+        alert("Atenção: Configure seu Access Token ou Link de Pagamento do Mercado Pago no Painel do Administrador.");
+        openAdminSettings();
+      } else {
+        alert(`Para ativar o plano ${plan.name} (${plan.formatted}), utilize o Pix Copia e Cola na tela ou envie o comprovante para liberação.`);
+      }
+      return;
+    }
+
+    try {
+      showPaymentToast("Gerando link de pagamento Mercado Pago...");
+      const returnUrl = `${window.location.origin}${window.location.pathname}?plan=${plan.id}`;
+
+      const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          items: [
+            {
+              title: `GiraRota PRO - Plano ${plan.name}`,
+              description: `Assinatura de rotas ilimitadas do GiraRota (${plan.days} dias)`,
+              quantity: 1,
+              currency_id: "BRL",
+              unit_price: plan.price,
+            },
+          ],
+          back_urls: {
+            success: `${returnUrl}&status=approved`,
+            failure: `${returnUrl}&status=failure`,
+            pending: `${returnUrl}&status=pending`,
+          },
+          auto_return: "approved",
+          statement_descriptor: "GIRAROTA PRO",
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Falha na API do Mercado Pago");
+      }
+
+      const pref = await response.json();
+      if (pref.init_point) {
+        window.location.href = pref.init_point;
+      } else {
+        throw new Error("URL de checkout do Mercado Pago não retornada.");
+      }
+    } catch (err) {
+      console.error("Mercado Pago checkout error:", err);
+      alert(`Erro ao conectar com Mercado Pago: ${err.message}. Verifique seu Access Token no painel admin.`);
+    }
+  },
+
+  verifyReturnFromURL() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const collectionStatus = urlParams.get("collection_status") || urlParams.get("status");
+      const paymentId = urlParams.get("payment_id") || urlParams.get("collection_id") || urlParams.get("preference_id");
+      const planId = urlParams.get("plan") || "monthly";
+
+      if (collectionStatus === "approved" && paymentId) {
+        const usedPayments = JSON.parse(localStorage.getItem("girarota_processed_payments") || "[]");
+
+        if (usedPayments.includes(paymentId)) {
+          console.log(`Payment ID ${paymentId} already credited.`);
+        } else {
+          usedPayments.push(paymentId);
+          localStorage.setItem("girarota_processed_payments", JSON.stringify(usedPayments));
+
+          const plan = PLANS_CONFIG[planId] || PLANS_CONFIG.monthly;
+          SubscriptionManager.activatePro(plan.id, plan.days, `MP-${paymentId}`);
+
+          showPaymentToast(`🎉 Pagamento aprovado pelo Mercado Pago! Assinatura ${plan.name} liberada.`);
+          playFanfareBeep();
+        }
+
+        // Clean query parameters from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (e) {
+      console.warn("Mercado Pago return verification error:", e);
+    }
+  },
+};
 
 function activateWithLicenseKey() {
   const input = document.getElementById("licenseKeyInput");
   if (!input) return;
   const key = input.value.trim().toUpperCase();
   if (!key) {
-    alert("Digite uma chave de licença válida.");
+    alert("Digite uma chave de ativação válida.");
     return;
   }
 
+  // Authoritative private keys (no public demo keys, no wildcards)
   const validKeys = {
-    "GEOFRETE-PRO-VIP": { plan: "monthly", days: 365 },
     "GEOFRETE-PRO-2026": { plan: "monthly", days: 90 },
     "MOTOBOY-CAMPO-LARGO": { plan: "monthly", days: 60 },
-    "ENTREGADOR-PRO": { plan: "monthly", days: 30 },
   };
 
   if (validKeys[key]) {
     const lic = validKeys[key];
     SubscriptionManager.activatePro(lic.plan, lic.days, key);
     input.value = "";
-  } else if (key.startsWith("GFPRO-") && key.length >= 10) {
-    SubscriptionManager.activatePro("monthly", 30, key);
-    input.value = "";
   } else {
-    alert("Chave de licença inválida ou não reconhecida. Verifique os caracteres digitados.");
+    alert("❌ Chave de licença inválida ou não reconhecida.");
   }
 }
 
