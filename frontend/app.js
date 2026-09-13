@@ -13,117 +13,10 @@ let currentOrigin = {
   lng: -46.6333,
 };
 
-// Preset Sample Datasets for Instant Demonstration
-const SAMPLE_DATASETS = {
-  sp15: {
-    origin: {
-      address: "Galpão Logístico - Centro SP",
-      lat: -23.5505,
-      lng: -46.6333,
-    },
-    items: [
-      { name: "João Carlos", address: "Av. Paulista, 1578 - Bela Vista, SP", lat: -23.5614, lng: -46.6558, tracking: "BR91238120" },
-      { name: "Mariana Costa", address: "Rua Augusta, 1200 - Consolação, SP", lat: -23.5535, lng: -46.6530, tracking: "BR91238121" },
-      { name: "Pedro Almeida", address: "Rua Oscar Freire, 800 - Jardins, SP", lat: -23.5630, lng: -46.6690, tracking: "BR91238122" },
-      { name: "Camila Ribeiro", address: "Rua dos Pinheiros, 450 - Pinheiros, SP", lat: -23.5670, lng: -46.6880, tracking: "BR91238123" },
-      { name: "Lucas Farias", address: "Av. Brig. Faria Lima, 2232 - Itaim Bibi, SP", lat: -23.5780, lng: -46.6890, tracking: "BR91238124" },
-      { name: "Beatriz Santos", address: "Rua Pamplona, 1000 - Jardim Paulista, SP", lat: -23.5660, lng: -46.6570, tracking: "BR91238125" },
-      { name: "Rafael Duarte", address: "Rua Vergueiro, 1353 - Paraíso, SP", lat: -23.5740, lng: -46.6410, tracking: "BR91238126" },
-      { name: "Juliana Mendes", address: "Rua Domingos de Morais, 800 - Vila Mariana, SP", lat: -23.5850, lng: -46.6380, tracking: "BR91238127" },
-      { name: "Fernando Rocha", address: "Av. Ibirapuera, 3103 - Moema, SP", lat: -23.6060, lng: -46.6620, tracking: "BR91238128" },
-      { name: "Larissa Dias", address: "Rua da Consolação, 2400 - Cerqueira César, SP", lat: -23.5560, lng: -46.6610, tracking: "BR91238129" },
-      { name: "Gustavo Nogueira", address: "Rua Haddock Lobo, 1307 - Cerqueira César, SP", lat: -23.5590, lng: -46.6650, tracking: "BR91238130" },
-      { name: "Aline Moreira", address: "Rua Teodoro Sampaio, 1800 - Pinheiros, SP", lat: -23.5600, lng: -46.6830, tracking: "BR91238131" },
-      { name: "Thiago Ramos", address: "Rua Bela Cintra, 900 - Consolação, SP", lat: -23.5540, lng: -46.6580, tracking: "BR91238132" },
-      { name: "Vanessa Martins", address: "Alameda Santos, 1800 - Cerqueira César, SP", lat: -23.5620, lng: -46.6560, tracking: "BR91238133" },
-      { name: "Rodrigo Silveira", address: "Rua Fradique Coutinho, 900 - Vila Madalena, SP", lat: -23.5580, lng: -46.6910, tracking: "BR91238134" }
-    ]
-  },
-  sp30: {
-    origin: {
-      address: "Galpão Logístico - Centro SP",
-      lat: -23.5505,
-      lng: -46.6333,
-    },
-    items: [
-      { name: "Parada 01", address: "Av. Paulista, 1578", lat: -23.5614, lng: -46.6558 },
-      { name: "Parada 02", address: "Rua Augusta, 1200", lat: -23.5535, lng: -46.6530 },
-      { name: "Parada 03", address: "Rua Oscar Freire, 800", lat: -23.5630, lng: -46.6690 },
-      { name: "Parada 04", address: "Rua dos Pinheiros, 450", lat: -23.5670, lng: -46.6880 },
-      { name: "Parada 05", address: "Av. Brig. Faria Lima, 2232", lat: -23.5780, lng: -46.6890 },
-      { name: "Parada 06", address: "Rua Pamplona, 1000", lat: -23.5660, lng: -46.6570 },
-      { name: "Parada 07", address: "Rua Vergueiro, 1353", lat: -23.5740, lng: -46.6410 },
-      { name: "Parada 08", address: "Rua Domingos de Morais, 800", lat: -23.5850, lng: -46.6380 },
-      { name: "Parada 09", address: "Av. Ibirapuera, 3103", lat: -23.6060, lng: -46.6620 },
-      { name: "Parada 10", address: "Rua da Consolação, 2400", lat: -23.5560, lng: -46.6610 },
-      { name: "Parada 11", address: "Rua Haddock Lobo, 1307", lat: -23.5590, lng: -46.6650 },
-      { name: "Parada 12", address: "Rua Teodoro Sampaio, 1800", lat: -23.5600, lng: -46.6830 },
-      { name: "Parada 13", address: "Rua Bela Cintra, 900", lat: -23.5540, lng: -46.6580 },
-      { name: "Parada 14", address: "Alameda Santos, 1800", lat: -23.5620, lng: -46.6560 },
-      { name: "Parada 15", address: "Rua Fradique Coutinho, 900", lat: -23.5580, lng: -46.6910 },
-      { name: "Parada 16", address: "Rua Harmonia, 500 - Vila Madalena", lat: -23.5510, lng: -46.6930 },
-      { name: "Parada 17", address: "Rua Aspicuelta, 300 - Vila Madalena", lat: -23.5545, lng: -46.6900 },
-      { name: "Parada 18", address: "Rua Cunha Gago, 400 - Pinheiros", lat: -23.5690, lng: -46.6950 },
-      { name: "Parada 19", address: "Rua dos Macunis, 120 - Alto de Pinheiros", lat: -23.5570, lng: -46.7050 },
-      { name: "Parada 20", address: "Av. Pedroso de Morais, 1000 - Pinheiros", lat: -23.5610, lng: -46.6980 },
-      { name: "Parada 21", address: "Rua Tabapuã, 800 - Itaim Bibi", lat: -23.5830, lng: -46.6800 },
-      { name: "Parada 22", address: "Rua Joaquim Floriano, 500 - Itaim Bibi", lat: -23.5840, lng: -46.6770 },
-      { name: "Parada 23", address: "Rua Clodomiro Amazonas, 300 - Itaim Bibi", lat: -23.5900, lng: -46.6820 },
-      { name: "Parada 24", address: "Rua Gomes de Carvalho, 1500 - Vila Olímpia", lat: -23.5970, lng: -46.6870 },
-      { name: "Parada 25", address: "Rua Funchal, 418 - Vila Olímpia", lat: -23.5950, lng: -46.6910 },
-      { name: "Parada 26", address: "Av. Santo Amaro, 2000 - Moema", lat: -23.6040, lng: -46.6770 },
-      { name: "Parada 27", address: "Alameda dos Maracatins, 800 - Moema", lat: -23.6090, lng: -46.6660 },
-      { name: "Parada 28", address: "Alameda dos Nhambiquaras, 1200 - Moema", lat: -23.6110, lng: -46.6590 },
-      { name: "Parada 29", address: "Rua Sena Madureira, 600 - Vila Mariana", lat: -23.5930, lng: -46.6450 },
-      { name: "Parada 30", address: "Rua Estado de Israel, 300 - Vila Mariana", lat: -23.5960, lng: -46.6480 }
-    ]
-  },
-  rj12: {
-    origin: {
-      address: "Centro - Rio de Janeiro, RJ",
-      lat: -22.9068,
-      lng: -43.1729,
-    },
-    items: [
-      { name: "Parada 01", address: "Av. Rio Branco, 100 - Centro, RJ", lat: -22.9035, lng: -43.1780 },
-      { name: "Parada 02", address: "Praça Tiradentes, 50 - Centro, RJ", lat: -22.9070, lng: -43.1830 },
-      { name: "Parada 03", address: "Rua da Lapa, 120 - Lapa, RJ", lat: -22.9140, lng: -43.1800 },
-      { name: "Parada 04", address: "Rua do Catete, 200 - Catete, RJ", lat: -22.9260, lng: -43.1770 },
-      { name: "Parada 05", address: "Rua Marquês de Abrantes, 80 - Flamengo, RJ", lat: -22.9360, lng: -43.1790 },
-      { name: "Parada 06", address: "Praia de Botafogo, 400 - Botafogo, RJ", lat: -22.9460, lng: -43.1830 },
-      { name: "Parada 07", address: "Rua Voluntários da Pátria, 150 - Botafogo, RJ", lat: -22.9520, lng: -43.1890 },
-      { name: "Parada 08", address: "Av. Princesa Isabel, 300 - Copacabana, RJ", lat: -22.9640, lng: -43.1770 },
-      { name: "Parada 09", address: "Av. Atlântica, 2000 - Copacabana, RJ", lat: -22.9710, lng: -43.1840 },
-      { name: "Parada 10", address: "Rua Barata Ribeiro, 500 - Copacabana, RJ", lat: -22.9730, lng: -43.1890 },
-      { name: "Parada 11", address: "Rua Visconde de Pirajá, 300 - Ipanema, RJ", lat: -22.9840, lng: -43.2040 },
-      { name: "Parada 12", address: "Rua Ataulfo de Paiva, 600 - Leblon, RJ", lat: -22.9860, lng: -43.2240 }
-    ]
-  },
-  cl15: {
-    origin: {
-      address: "Galpão / Ponto de Partida - Centro, Campo Largo - PR",
-      lat: -25.4592,
-      lng: -49.5285,
-    },
-    items: [
-      { name: "Farmácia Nissei", address: "Rua Marechal Deodoro, 450 - Centro, Campo Largo - PR", lat: -25.4578, lng: -49.5298, tracking: "BRCL001" },
-      { name: "Supermercado Condor", address: "Rua Xavier da Silva, 1150 - Centro, Campo Largo - PR", lat: -25.4605, lng: -49.5262, tracking: "BRCL002" },
-      { name: "Auto Posto Centro", address: "Rua Dom Pedro II, 820 - Centro, Campo Largo - PR", lat: -25.4561, lng: -49.5312, tracking: "BRCL003" },
-      { name: "Residencial Jardins", address: "Rua XV de Novembro, 1600 - Centro, Campo Largo - PR", lat: -25.4542, lng: -49.5335, tracking: "BRCL004" },
-      { name: "Condomínio Pinheiros", address: "Rua Centenário, 1850 - Centro, Campo Largo - PR", lat: -25.4520, lng: -49.5320, tracking: "BRCL005" },
-      { name: "Comercial Silva", address: "Rua Gonçalves Dias, 700 - Centro, Campo Largo - PR", lat: -25.4625, lng: -49.5270, tracking: "BRCL006" },
-      { name: "Metalúrgica Tourinho", address: "Rua Engenheiro Tourinho, 980 - Centro, Campo Largo - PR", lat: -25.4640, lng: -49.5245, tracking: "BRCL007" },
-      { name: "Laboratório Bom Jesus", address: "Rua Benedito Soares Pinto, 1420 - Vila Bancária, Campo Largo - PR", lat: -25.4510, lng: -49.5255, tracking: "BRCL008" },
-      { name: "Panificadora Pão D'Oro", address: "Rua Quintino Bocaiúva, 650 - Vila Bancária, Campo Largo - PR", lat: -25.4490, lng: -49.5280, tracking: "BRCL009" },
-      { name: "Cerâmica Campo Largo", address: "Rua Ema Taner de Andrade, 320 - Ferrari, Campo Largo - PR", lat: -25.4460, lng: -49.5190, tracking: "BRCL010" },
-      { name: "Distribuidora Solene", address: "Rua Caetano Munhoz da Rocha, 890 - Vila Solene, Campo Largo - PR", lat: -25.4665, lng: -49.5325, tracking: "BRCL011" },
-      { name: "Mercearia São José", address: "Rua Des. Clotário Portugal, 550 - Vila Solene, Campo Largo - PR", lat: -25.4680, lng: -49.5350, tracking: "BRCL012" },
-      { name: "Vinícola Campo Largo", address: "Rua Subestação de Enologia, 450 - Campo do Meio, Campo Largo - PR", lat: -25.4720, lng: -49.5180, tracking: "BRCL013" },
-      { name: "Hospital do Rocio / São Lucas", address: "Av. Padre Natal Pigatto, 1200 - Vila Elizabeth, Campo Largo - PR", lat: -25.4485, lng: -49.5385, tracking: "BRCL014" },
-      { name: "Mecânica Águas Claras", address: "Rua Ayrton Senna da Silva, 2500 - Águas Claras, Campo Largo - PR", lat: -25.4350, lng: -49.5120, tracking: "BRCL015" }
-    ]
-  }
-};
+// Preset Sample Datasets are loaded from datasets.js (Todas as 27 Capitais do Brasil com 20 Endereços)
+if (typeof SAMPLE_DATASETS === "undefined") {
+  window.SAMPLE_DATASETS = {};
+}
 
 // Initialize Application
 document.addEventListener("DOMContentLoaded", () => {
@@ -303,7 +196,7 @@ function updateModeUI(mode) {
   initLucide();
 }
 
-// Load Samples
+// Load Samples (27 Capitais do Brasil)
 function loadSampleBatch(key) {
   const sample = SAMPLE_DATASETS[key];
   if (!sample) return;
@@ -316,6 +209,31 @@ function loadSampleBatch(key) {
   currentStops = JSON.parse(JSON.stringify(sample.items));
   updateBatchTextArea();
   updatePackageCount();
+
+  // Synchronize select dropdown
+  const select = document.getElementById("capitalSelect");
+  if (select && select.value !== key) {
+    select.value = key;
+  }
+
+  // Smoothly center and fly map to the capital
+  if (map && currentOrigin.lat && currentOrigin.lng) {
+    map.flyTo([currentOrigin.lat, currentOrigin.lng], 13, { duration: 1.2 });
+  }
+
+  showPaymentToast(`Lote carregado: ${sample.name || key} (${currentStops.length} pacotes)`);
+}
+
+function loadRandomCapitalBatch() {
+  const capitalKeys = [
+    "curitiba", "florianopolis", "porto_alegre",
+    "sao_paulo", "rio_de_janeiro", "belo_horizonte", "vitoria",
+    "brasilia", "goiania", "cuiaba", "campo_grande",
+    "salvador", "recife", "fortaleza", "natal", "joao_pessoa", "maceio", "aracaju", "teresina", "sao_luis",
+    "manaus", "belem", "porto_velho", "palmas", "rio_branco", "macapa", "boa_vista"
+  ];
+  const randomKey = capitalKeys[Math.floor(Math.random() * capitalKeys.length)];
+  loadSampleBatch(randomKey);
 }
 
 function updateBatchTextArea() {
