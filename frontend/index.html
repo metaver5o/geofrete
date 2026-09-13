@@ -843,8 +843,8 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
   </div>
 
   <!-- 7-Day Free Trial Signup Modal -->
-  <div id="trialSignupModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl relative my-6">
+  <div id="trialSignupModal" onclick="if (event.target === this) closeTrialSignupModal()" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 overflow-y-auto p-3 sm:p-4 flex items-start justify-center">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto">
       
       <div class="flex items-start justify-between">
         <div class="flex items-center space-x-3">
@@ -934,11 +934,11 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
   </div>
 
   <!-- Subscription & Checkout Modal -->
-  <div id="subscriptionModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-5 sm:p-6 space-y-5 shadow-2xl relative my-6">
+  <div id="subscriptionModal" onclick="if (event.target === this) closeSubscriptionModal()" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 overflow-y-auto p-3 sm:p-4 md:p-6 flex items-start justify-center">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl relative my-auto max-h-[92vh] flex flex-col">
       
-      <!-- Modal Header -->
-      <div class="flex items-start justify-between">
+      <!-- Modal Header (Fixed at top of modal) -->
+      <div class="flex items-start justify-between border-b border-slate-800/80 pb-3 flex-shrink-0">
         <div class="flex items-center space-x-3">
           <div class="bg-gradient-to-br from-amber-500 to-yellow-600 p-2.5 rounded-2xl text-slate-950 shadow-lg shadow-amber-500/30">
             <i data-lucide="crown" class="w-6 h-6"></i>
@@ -951,10 +951,13 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
             <p class="text-xs text-slate-400">Roteirização ilimitada, OCR avançado e máxima economia de combustível</p>
           </div>
         </div>
-        <button onclick="closeSubscriptionModal()" class="text-slate-400 hover:text-white p-1 rounded-lg transition">
+        <button onclick="closeSubscriptionModal()" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition cursor-pointer flex-shrink-0" title="Fechar janela (Esc)">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
+
+      <!-- Scrollable Modal Body -->
+      <div class="overflow-y-auto pr-1 sm:pr-2 space-y-4 flex-1 py-3">
 
       <!-- Active Subscription Card (Visible when PRO is active) -->
       <div id="activeSubscriptionCard" class="hidden bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-slate-900 border border-amber-500/40 rounded-2xl p-4 space-y-3">
@@ -1153,13 +1156,26 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
         </div>
 
       </div>
+      <!-- End of Scrollable Body -->
+
+      <!-- Modal Footer (Fixed at bottom of modal) -->
+      <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between flex-shrink-0">
+        <span class="text-[11px] text-slate-400 flex items-center space-x-1.5">
+          <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+          <span>Pagamento Seguro Mercado Pago</span>
+        </span>
+        <button onclick="closeSubscriptionModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2 rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          <span>Fechar</span>
+        </button>
+      </div>
 
     </div>
   </div>
 
   <!-- Referral Program Modal -->
-  <div id="referralModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-5 shadow-2xl relative my-6">
+  <div id="referralModal" onclick="if (event.target === this) closeReferralModal()" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md z-50 overflow-y-auto p-3 sm:p-4 flex items-start justify-center">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto">
       
       <!-- Modal Header -->
       <div class="flex items-start justify-between">
@@ -1272,8 +1288,8 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
   </div>
 
   <!-- Settings / System Configuration Modal -->
-  <div id="settingsModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+  <div id="settingsModal" onclick="if (event.target === this) document.getElementById('settingsModal').classList.add('hidden')" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto p-3 sm:p-4 flex items-start justify-center">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-2xl relative my-auto max-h-[92vh] flex flex-col">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div>
           <h3 class="font-bold text-base text-white flex items-center space-x-2">
@@ -1454,6 +1470,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

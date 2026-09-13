@@ -153,10 +153,10 @@ function loadSettings() {
   if (document.getElementById("adminGoogleClientIdInput")) document.getElementById("adminGoogleClientIdInput").value = googleClientId;
 
   // Load Mercado Pago Settings
-  const mpClientId = localStorage.getItem("geofrete_admin_mp_client_id") || "6934117545630305";
-  const mpClientSecret = localStorage.getItem("geofrete_admin_mp_client_secret") || "";
-  const mpAccessToken = localStorage.getItem("geofrete_admin_mp_access_token") || "APP_USR-6934117545630305-091300-af1bf18fa45ec8a6e72243bf7b687881-3687145136";
-  const mpPublicKey = localStorage.getItem("geofrete_admin_mp_public_key") || "APP_USR-eeb439de-dc53-4be2-8263-97fcc4fe0182";
+  const mpClientId = localStorage.getItem("geofrete_admin_mp_client_id") || "7178968776068197";
+  const mpClientSecret = localStorage.getItem("geofrete_admin_mp_client_secret") || "FzuFkppQkZvMIpGTgjXZabesGTIQ7BXd";
+  const mpAccessToken = localStorage.getItem("geofrete_admin_mp_access_token") || "APP_USR-7178968776068197-091300-81b43ca28181533ffc43b9bfdb5f423a-2946368735";
+  const mpPublicKey = localStorage.getItem("geofrete_admin_mp_public_key") || "APP_USR-af7d5bfc-4e42-443a-bbb7-bee4e431d5e5";
   const mpLinkMonthly = localStorage.getItem("geofrete_admin_mp_link_monthly") || "";
   if (document.getElementById("adminMpClientIdInput")) document.getElementById("adminMpClientIdInput").value = mpClientId;
   if (document.getElementById("adminMpClientSecretInput")) document.getElementById("adminMpClientSecretInput").value = mpClientSecret;
@@ -3248,15 +3248,15 @@ const MercadoPagoManager = {
   pollingTimer: null,
 
   getAccessToken() {
-    return localStorage.getItem("geofrete_admin_mp_access_token") || "APP_USR-6934117545630305-091300-af1bf18fa45ec8a6e72243bf7b687881-3687145136";
+    return localStorage.getItem("geofrete_admin_mp_access_token") || "APP_USR-7178968776068197-091300-81b43ca28181533ffc43b9bfdb5f423a-2946368735";
   },
 
   getPublicKey() {
-    return localStorage.getItem("geofrete_admin_mp_public_key") || "APP_USR-eeb439de-dc53-4be2-8263-97fcc4fe0182";
+    return localStorage.getItem("geofrete_admin_mp_public_key") || "APP_USR-af7d5bfc-4e42-443a-bbb7-bee4e431d5e5";
   },
 
   getClientId() {
-    return localStorage.getItem("geofrete_admin_mp_client_id") || "6934117545630305";
+    return localStorage.getItem("geofrete_admin_mp_client_id") || "7178968776068197";
   },
 
   getPaymentLink(planId = "monthly") {
