@@ -69,11 +69,9 @@ function initMap() {
     scrollWheelZoom: false,
   }).setView([currentOrigin.lat, currentOrigin.lng], 13);
 
-  const cartoApiKey = "cb1_3iva_1_97907d15ae0df4f70c756a74";
-
-  // Official CARTO Basemaps authenticated with user's API Key
+  // Official CARTO Basemaps (Public open tiles)
   const voyagerLayer = L.tileLayer(
-    `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${cartoApiKey}`,
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
     {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -83,7 +81,7 @@ function initMap() {
   );
 
   const darkLayer = L.tileLayer(
-    `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`,
+    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     {
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -131,8 +129,8 @@ function loadSettings() {
   if (document.getElementById("adminPixCityInput")) document.getElementById("adminPixCityInput").value = pixCity;
 
   // Load Privy & Google Client ID Settings
-  const privyAppId = localStorage.getItem("geofrete_admin_privy_app_id") || "cl_girarota_demo_2026";
-  const googleClientId = localStorage.getItem("geofrete_admin_google_client_id") || "girarota-google-client-id";
+  const privyAppId = localStorage.getItem("geofrete_admin_privy_app_id") || "";
+  const googleClientId = localStorage.getItem("geofrete_admin_google_client_id") || "";
   if (document.getElementById("adminPrivyAppIdInput")) document.getElementById("adminPrivyAppIdInput").value = privyAppId;
   if (document.getElementById("adminGoogleClientIdInput")) document.getElementById("adminGoogleClientIdInput").value = googleClientId;
 }
@@ -1637,9 +1635,9 @@ function normalizeAscii(str, maxLen) {
   return clean.substring(0, maxLen);
 }
 
-function generatePixBRCode(key, amount, name = "GEOFRETE BRASIL", city = "CAMPO LARGO", txId = "GEOFRETE") {
+function generatePixBRCode(key, amount, name = "GIRAROTA BRASIL", city = "CAMPO LARGO", txId = "GIRAROTA") {
   const cleanKey = key.trim();
-  const cleanName = normalizeAscii(name, 25) || "GEOFRETE BRASIL";
+  const cleanName = normalizeAscii(name, 25) || "GIRAROTA BRASIL";
   const cleanCity = normalizeAscii(city, 15) || "CAMPO LARGO";
   const cleanTxId = normalizeAscii(txId, 25) || "***";
   const amountStr = Number(amount).toFixed(2);

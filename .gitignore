@@ -50,3 +50,15 @@ redisdata/
 *.swp
 *.swo
 .DS_Store
+
+# Security & Secrets
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
+.env*
+!.env.example
+secrets/
+credentials.json

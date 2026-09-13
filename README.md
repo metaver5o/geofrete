@@ -1,13 +1,13 @@
-# GEOFRETE 🚀
+# GIRAROTA 🚀
 ### Otimizador Inteligente de Rotas Last-Mile para Entregadores Autônomos
 
-O **GEOFRETE** é uma plataforma SaaS B2C (R$ 49,99/mês) projetada especificamente para entregadores autônomos (motoboys, motoristas de aplicativo e frotas de entrega rápida). Permite o escaneamento contínuo em lote de etiquetas (via câmera/OCR do app mobile), normaliza e geocodifica endereços com resiliência para o Brasil (CEP + OpenStreetMap), e calcula o itinerário ideal resolvendo o **Problema do Caixeiro Viajante (TSP)** com o **Google OR-Tools** (no backend) e heurística **2-opt** (no navegador).
+O **GiraRota** é uma plataforma SaaS B2C (R$ 49,99/mês) projetada especificamente para entregadores autônomos (motoboys, motoristas de aplicativo e frotas de entrega rápida). Permite o escaneamento contínuo em lote de etiquetas (via câmera/OCR do app mobile), normaliza e geocodifica endereços com resiliência para o Brasil (CEP + OpenStreetMap), e calcula o itinerário ideal resolvendo o **Problema do Caixeiro Viajante (TSP)** com o **Google OR-Tools** (no backend) e heurística **2-opt** (no navegador).
 
 ---
 
 ## 🌐 Hospedagem no GitHub Pages & Arquitetura Híbrida
 
-O GEOFRETE foi desenhado com uma **arquitetura híbrida** para permitir que o aplicativo seja hospedado gratuitamente no **GitHub Pages**:
+O GiraRota foi desenhado com uma **arquitetura híbrida** para permitir que o aplicativo seja hospedado gratuitamente no **GitHub Pages** e no domínio oficial [girarota.com](https://girarota.com):
 
 ```mermaid
 graph TD
