@@ -1338,24 +1338,48 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
         </div>
 
         <!-- Mercado Pago / Mercado Livre Gateway Configuration -->
-        <div class="border-t border-slate-800 pt-3 space-y-2">
-          <h4 class="font-bold text-slate-200 text-xs flex items-center space-x-1.5">
-            <i data-lucide="credit-card" class="w-3.5 h-3.5 text-blue-400"></i>
-            <span>Integração Mercado Pago (Mercado Livre)</span>
-          </h4>
+        <div class="border-t border-slate-800 pt-3 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-200 text-xs flex items-center space-x-1.5">
+              <i data-lucide="credit-card" class="w-3.5 h-3.5 text-blue-400"></i>
+              <span>Integração Mercado Pago (Mercado Livre)</span>
+            </h4>
+            <span id="mpConnectionBadge" class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+              Não Conectado
+            </span>
+          </div>
           <p class="text-slate-400 text-[11px]">
-            Conecte sua conta do <strong>Mercado Pago / Mercado Livre</strong> para cobrança automática com liberação imediata via Pix e Cartão.
+            Conecte suas credenciais do <strong>Mercado Pago</strong> (Developers &gt; Suas Aplicações) para cobrança automática via Pix e Cartão.
           </p>
+          
+          <!-- Client ID & Secret for OAuth -->
+          <div class="grid grid-cols-2 gap-2">
+            <div class="space-y-1">
+              <label class="font-semibold text-slate-400 text-[11px]">Client ID:</label>
+              <input type="text" id="adminMpClientIdInput" value="" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="Ex: 4934588586838432">
+            </div>
+            <div class="space-y-1">
+              <label class="font-semibold text-slate-400 text-[11px]">Client Secret:</label>
+              <input type="password" id="adminMpClientSecretInput" value="" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="Ex: sEcReT_kEy...">
+            </div>
+          </div>
+
+          <button type="button" onclick="MercadoPagoManager.authenticateOAuth()" class="w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/40 text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center space-x-1.5 transition cursor-pointer">
+            <i data-lucide="key" class="w-3.5 h-3.5"></i>
+            <span>🔑 Autenticar &amp; Obter Access Token (OAuth MP)</span>
+          </button>
+
+          <!-- Direct Access Token & Public Key -->
           <div class="space-y-1.5 pt-1">
-            <label class="font-semibold text-slate-400 text-[11px]">Access Token do Mercado Pago (Painel de Desenvolvedores):</label>
+            <label class="font-semibold text-slate-400 text-[11px]">Access Token (APP_USR-...):</label>
             <input type="password" id="adminMpAccessTokenInput" value="" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="APP_USR-...">
           </div>
           <div class="space-y-1.5">
-            <label class="font-semibold text-slate-400 text-[11px]">Public Key do Mercado Pago:</label>
+            <label class="font-semibold text-slate-400 text-[11px]">Public Key (APP_USR-...):</label>
             <input type="text" id="adminMpPublicKeyInput" value="" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="APP_USR-...">
           </div>
           <div class="space-y-1.5">
-            <label class="font-semibold text-slate-400 text-[11px]">Link de Checkout Mercado Pago Mensal (opcional / mpago.la):</label>
+            <label class="font-semibold text-slate-400 text-[11px]">Link Direto de Pagamento (opcional / mpago.la):</label>
             <input type="text" id="adminMpLinkMonthlyInput" value="" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="https://mpago.la/...">
           </div>
         </div>
@@ -1413,6 +1437,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

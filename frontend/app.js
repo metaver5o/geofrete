@@ -151,12 +151,19 @@ function loadSettings() {
   if (document.getElementById("adminGoogleClientIdInput")) document.getElementById("adminGoogleClientIdInput").value = googleClientId;
 
   // Load Mercado Pago Settings
+  const mpClientId = localStorage.getItem("geofrete_admin_mp_client_id") || "";
+  const mpClientSecret = localStorage.getItem("geofrete_admin_mp_client_secret") || "";
   const mpAccessToken = localStorage.getItem("geofrete_admin_mp_access_token") || "";
   const mpPublicKey = localStorage.getItem("geofrete_admin_mp_public_key") || "";
   const mpLinkMonthly = localStorage.getItem("geofrete_admin_mp_link_monthly") || "";
+  if (document.getElementById("adminMpClientIdInput")) document.getElementById("adminMpClientIdInput").value = mpClientId;
+  if (document.getElementById("adminMpClientSecretInput")) document.getElementById("adminMpClientSecretInput").value = mpClientSecret;
   if (document.getElementById("adminMpAccessTokenInput")) document.getElementById("adminMpAccessTokenInput").value = mpAccessToken;
   if (document.getElementById("adminMpPublicKeyInput")) document.getElementById("adminMpPublicKeyInput").value = mpPublicKey;
   if (document.getElementById("adminMpLinkMonthlyInput")) document.getElementById("adminMpLinkMonthlyInput").value = mpLinkMonthly;
+  if (typeof MercadoPagoManager !== "undefined" && MercadoPagoManager.updateConnectionBadge) {
+    MercadoPagoManager.updateConnectionBadge();
+  }
 }
 
 function saveSettings() {
@@ -176,12 +183,19 @@ function saveSettings() {
   localStorage.setItem("geofrete_admin_pix_city", pixCity);
 
   // Save Mercado Pago Settings
+  const mpClientId = (document.getElementById("adminMpClientIdInput")?.value || "").trim();
+  const mpClientSecret = (document.getElementById("adminMpClientSecretInput")?.value || "").trim();
   const mpAccessToken = (document.getElementById("adminMpAccessTokenInput")?.value || "").trim();
   const mpPublicKey = (document.getElementById("adminMpPublicKeyInput")?.value || "").trim();
   const mpLinkMonthly = (document.getElementById("adminMpLinkMonthlyInput")?.value || "").trim();
+  localStorage.setItem("geofrete_admin_mp_client_id", mpClientId);
+  localStorage.setItem("geofrete_admin_mp_client_secret", mpClientSecret);
   localStorage.setItem("geofrete_admin_mp_access_token", mpAccessToken);
   localStorage.setItem("geofrete_admin_mp_public_key", mpPublicKey);
   localStorage.setItem("geofrete_admin_mp_link_monthly", mpLinkMonthly);
+  if (typeof MercadoPagoManager !== "undefined" && MercadoPagoManager.updateConnectionBadge) {
+    MercadoPagoManager.updateConnectionBadge();
+  }
 
   // Save Privy & Google Settings
   const privyAppId = (document.getElementById("adminPrivyAppIdInput")?.value || "cl_girarota_demo_2026").trim();
@@ -270,6 +284,7 @@ function openAdminSettings() {
     promptAdminPassword();
     return;
   }
+  loadSettings();
   const modal = document.getElementById("settingsModal");
   if (modal) {
     modal.classList.remove("hidden");
@@ -3229,6 +3244,75 @@ const MercadoPagoManager = {
     if (generalLink && generalLink.trim()) return generalLink.trim();
 
     return null;
+  },
+
+  updateConnectionBadge() {
+    const badge = document.getElementById("mpConnectionBadge");
+    if (!badge) return;
+    const token = this.getAccessToken();
+    const link = this.getPaymentLink();
+    if (token || link) {
+      badge.textContent = "🟢 Conectado";
+      badge.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+    } else {
+      badge.textContent = "⚪ Não Conectado";
+      badge.className = "text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700";
+    }
+  },
+
+  async authenticateOAuth() {
+    const clientId = (document.getElementById("adminMpClientIdInput")?.value || localStorage.getItem("geofrete_admin_mp_client_id") || "").trim();
+    const clientSecret = (document.getElementById("adminMpClientSecretInput")?.value || localStorage.getItem("geofrete_admin_mp_client_secret") || "").trim();
+
+    if (!clientId || !clientSecret) {
+      alert("Por favor, preencha o Client ID e Client Secret obtidos no Portal de Desenvolvedores do Mercado Pago (https://www.mercadopago.com.br/developers/panel/app).");
+      return;
+    }
+
+    try {
+      showPaymentToast("Conectando ao Mercado Pago (OAuth 2.0)...");
+      const resp = await fetch("https://api.mercadopago.com/oauth/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          grant_type: "client_credentials",
+          test_token: "false",
+        }),
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(data.message || data.error_description || data.error || "Falha na autenticação com Mercado Pago");
+      }
+
+      if (data.access_token) {
+        localStorage.setItem("geofrete_admin_mp_client_id", clientId);
+        localStorage.setItem("geofrete_admin_mp_client_secret", clientSecret);
+        localStorage.setItem("geofrete_admin_mp_access_token", data.access_token);
+        if (data.public_key) {
+          localStorage.setItem("geofrete_admin_mp_public_key", data.public_key);
+          if (document.getElementById("adminMpPublicKeyInput")) {
+            document.getElementById("adminMpPublicKeyInput").value = data.public_key;
+          }
+        }
+        if (document.getElementById("adminMpAccessTokenInput")) {
+          document.getElementById("adminMpAccessTokenInput").value = data.access_token;
+        }
+        this.updateConnectionBadge();
+        showPaymentToast("✅ Token OAuth do Mercado Pago gerado com sucesso!");
+        alert("🎉 Conexão estabelecida com sucesso com o Mercado Pago!\nSeu Access Token oficial foi gerado e salvo automaticamente.");
+      } else {
+        throw new Error("Token de acesso não encontrado na resposta da API.");
+      }
+    } catch (err) {
+      console.error("Erro na autenticação OAuth Mercado Pago:", err);
+      alert(`❌ Erro ao autenticar no Mercado Pago: ${err.message}\nVerifique se o Client ID e Client Secret estão corretos em Developers > Suas Aplicações.`);
+    }
   },
 
   async openCheckout(planId = null) {
