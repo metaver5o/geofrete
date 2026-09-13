@@ -5,6 +5,8 @@ let map = null;
 let markersGroup = null;
 let routePolyline = null;
 let currentStops = [];
+let stopMarkers = [];
+let renderedStops = [];
 let currentOrigin = {
   address: "Praça da Sé - Centro Histórico, São Paulo - SP",
   lat: -23.5505,
@@ -480,9 +482,11 @@ function renderOptimizedRoute(result) {
   document.getElementById("statTime").textContent = `${Math.round(estimatedTimeMin)} min`;
   document.getElementById("itineraryStatus").textContent = "Rota calculada com sucesso!";
 
-  // Clear Map
+  // Clear Map & Reset Markers
   markersGroup.clearLayers();
   if (routePolyline) map.removeLayer(routePolyline);
+  stopMarkers = [];
+  renderedStops = orderedStops;
 
   // Add Origin Pin
   const originIcon = L.divIcon({
@@ -515,6 +519,7 @@ function renderOptimizedRoute(result) {
     const marker = L.marker([stop.lat, stop.lng], { icon: stopIcon })
       .bindPopup(`<strong>#${stop.sequenceOrder} - ${stop.name || "Entrega"}</strong><br>${stop.address}`);
     markersGroup.addLayer(marker);
+    stopMarkers.push(marker);
 
     // Stop Card in Itinerary List
     const wazeUrl = `https://waze.com/ul?ll=${stop.lat},${stop.lng}&navigate=yes`;
@@ -526,11 +531,16 @@ function renderOptimizedRoute(result) {
     card.innerHTML = `
       <div class="flex items-start justify-between">
         <div class="flex items-start space-x-2.5">
-          <span class="bg-brand-600 text-white font-black text-xs w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+          <span id="badge-${idx}" class="bg-brand-600 text-white font-black text-xs w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 transition">
             ${stop.sequenceOrder}
           </span>
           <div>
-            <h4 class="font-bold text-slate-100 text-xs">${stop.name || "Destinatário"}</h4>
+            <div class="flex items-center space-x-2">
+              <h4 class="font-bold text-slate-100 text-xs">${stop.name || "Destinatário"}</h4>
+              <span id="delivered-pill-${idx}" class="hidden text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-semibold">
+                Entregue
+              </span>
+            </div>
             <p class="text-xs text-slate-400 mt-0.5">${stop.address}</p>
             ${stop.tracking ? `<span class="text-[10px] text-slate-500 font-mono">Etiqueta: ${stop.tracking}</span>` : ""}
           </div>
@@ -541,9 +551,9 @@ function renderOptimizedRoute(result) {
       </div>
 
       <div class="flex items-center justify-between pt-1 border-t border-slate-900">
-        <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer">
-          <input type="checkbox" onchange="toggleDelivered(${idx})" class="rounded border-slate-700 text-brand-600 focus:ring-0">
-          <span>Entregue</span>
+        <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer select-none">
+          <input type="checkbox" onchange="toggleDelivered(${idx}, this.checked)" class="rounded border-slate-700 text-brand-600 focus:ring-0">
+          <span>Marcar como Entregue</span>
         </label>
         <div class="flex space-x-1.5">
           <a href="${wazeUrl}" target="_blank" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
@@ -589,10 +599,79 @@ function renderBackendRoute(routeData) {
   });
 }
 
-function toggleDelivered(index) {
+function toggleDelivered(index, isDelivered) {
   const card = document.getElementById(`stop-card-${index}`);
+  const badge = document.getElementById(`badge-${index}`);
+  const pill = document.getElementById(`delivered-pill-${index}`);
+
   if (card) {
-    card.classList.toggle("opacity-40");
-    card.classList.toggle("bg-slate-900");
+    if (isDelivered) {
+      card.classList.add("opacity-60", "bg-emerald-950/20", "border-emerald-800/50");
+      card.classList.remove("border-slate-800");
+      if (badge) {
+        badge.classList.remove("bg-brand-600");
+        badge.classList.add("bg-emerald-600");
+        badge.textContent = "✓";
+      }
+      if (pill) pill.classList.remove("hidden");
+    } else {
+      card.classList.remove("opacity-60", "bg-emerald-950/20", "border-emerald-800/50");
+      card.classList.add("border-slate-800");
+      if (badge && renderedStops[index]) {
+        badge.classList.remove("bg-emerald-600");
+        badge.classList.add("bg-brand-600");
+        badge.textContent = renderedStops[index].sequenceOrder;
+      }
+      if (pill) pill.classList.add("hidden");
+    }
+  }
+
+  // Update Pin on Map to Green / Emerald
+  if (stopMarkers && stopMarkers[index]) {
+    const marker = stopMarkers[index];
+    const stop = renderedStops[index];
+    if (isDelivered) {
+      const deliveredIcon = L.divIcon({
+        className: "delivered-marker",
+        html: `<span>✓</span>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+      marker.setIcon(deliveredIcon);
+      marker.bindPopup(`<strong><span style="color: #10b981;">✓ ENTREGUE</span> (#${stop.sequenceOrder} - ${stop.name || "Entrega"})</strong><br>${stop.address}`);
+    } else {
+      const normalIcon = L.divIcon({
+        className: "stop-marker",
+        html: `<span>${stop.sequenceOrder}</span>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+      marker.setIcon(normalIcon);
+      marker.bindPopup(`<strong>#${stop.sequenceOrder} - ${stop.name || "Entrega"}</strong><br>${stop.address}`);
+    }
+  }
+
+  updateDeliveredStatus();
+}
+
+function updateDeliveredStatus() {
+  const total = renderedStops.length;
+  if (total === 0) return;
+
+  const checkboxes = document.querySelectorAll("#stopsList input[type='checkbox']");
+  let deliveredCount = 0;
+  checkboxes.forEach((cb) => {
+    if (cb.checked) deliveredCount++;
+  });
+
+  const statusEl = document.getElementById("itineraryStatus");
+  if (statusEl) {
+    if (deliveredCount === total) {
+      statusEl.innerHTML = `<span class="text-emerald-400 font-bold">🎉 Todas as ${total} entregas foram concluídas!</span>`;
+    } else if (deliveredCount > 0) {
+      statusEl.innerHTML = `<span class="text-emerald-400 font-medium">${deliveredCount} de ${total} pacotes entregues (${Math.round((deliveredCount / total) * 100)}%)</span>`;
+    } else {
+      statusEl.textContent = "Rota calculada com sucesso!";
+    }
   }
 }
