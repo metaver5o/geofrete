@@ -98,6 +98,30 @@ const SAMPLE_DATASETS = {
       { name: "Parada 11", address: "Rua Visconde de Pirajá, 300 - Ipanema, RJ", lat: -22.9840, lng: -43.2040 },
       { name: "Parada 12", address: "Rua Ataulfo de Paiva, 600 - Leblon, RJ", lat: -22.9860, lng: -43.2240 }
     ]
+  },
+  cl15: {
+    origin: {
+      address: "Galpão / Ponto de Partida - Centro, Campo Largo - PR",
+      lat: -25.4592,
+      lng: -49.5285,
+    },
+    items: [
+      { name: "Farmácia Nissei", address: "Rua Marechal Deodoro, 450 - Centro, Campo Largo - PR", lat: -25.4578, lng: -49.5298, tracking: "BRCL001" },
+      { name: "Supermercado Condor", address: "Rua Xavier da Silva, 1150 - Centro, Campo Largo - PR", lat: -25.4605, lng: -49.5262, tracking: "BRCL002" },
+      { name: "Auto Posto Centro", address: "Rua Dom Pedro II, 820 - Centro, Campo Largo - PR", lat: -25.4561, lng: -49.5312, tracking: "BRCL003" },
+      { name: "Residencial Jardins", address: "Rua XV de Novembro, 1600 - Centro, Campo Largo - PR", lat: -25.4542, lng: -49.5335, tracking: "BRCL004" },
+      { name: "Condomínio Pinheiros", address: "Rua Centenário, 1850 - Centro, Campo Largo - PR", lat: -25.4520, lng: -49.5320, tracking: "BRCL005" },
+      { name: "Comercial Silva", address: "Rua Gonçalves Dias, 700 - Centro, Campo Largo - PR", lat: -25.4625, lng: -49.5270, tracking: "BRCL006" },
+      { name: "Metalúrgica Tourinho", address: "Rua Engenheiro Tourinho, 980 - Centro, Campo Largo - PR", lat: -25.4640, lng: -49.5245, tracking: "BRCL007" },
+      { name: "Laboratório Bom Jesus", address: "Rua Benedito Soares Pinto, 1420 - Vila Bancária, Campo Largo - PR", lat: -25.4510, lng: -49.5255, tracking: "BRCL008" },
+      { name: "Panificadora Pão D'Oro", address: "Rua Quintino Bocaiúva, 650 - Vila Bancária, Campo Largo - PR", lat: -25.4490, lng: -49.5280, tracking: "BRCL009" },
+      { name: "Cerâmica Campo Largo", address: "Rua Ema Taner de Andrade, 320 - Ferrari, Campo Largo - PR", lat: -25.4460, lng: -49.5190, tracking: "BRCL010" },
+      { name: "Distribuidora Solene", address: "Rua Caetano Munhoz da Rocha, 890 - Vila Solene, Campo Largo - PR", lat: -25.4665, lng: -49.5325, tracking: "BRCL011" },
+      { name: "Mercearia São José", address: "Rua Des. Clotário Portugal, 550 - Vila Solene, Campo Largo - PR", lat: -25.4680, lng: -49.5350, tracking: "BRCL012" },
+      { name: "Vinícola Campo Largo", address: "Rua Subestação de Enologia, 450 - Campo do Meio, Campo Largo - PR", lat: -25.4720, lng: -49.5180, tracking: "BRCL013" },
+      { name: "Hospital do Rocio / São Lucas", address: "Av. Padre Natal Pigatto, 1200 - Vila Elizabeth, Campo Largo - PR", lat: -25.4485, lng: -49.5385, tracking: "BRCL014" },
+      { name: "Mecânica Águas Claras", address: "Rua Ayrton Senna da Silva, 2500 - Águas Claras, Campo Largo - PR", lat: -25.4350, lng: -49.5120, tracking: "BRCL015" }
+    ]
   }
 };
 
@@ -119,6 +143,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // Handle manual textarea input
+  const inputEl = document.getElementById("rawLabelsInput");
+  if (inputEl) {
+    inputEl.addEventListener("input", parseRawInput);
+  }
 
   // Load default SP 15 sample
   loadSampleBatch("sp15");
@@ -235,6 +265,72 @@ function clearBatch() {
     </div>
   `;
   document.getElementById("metricsPanel").classList.add("hidden");
+}
+
+function parseRawInput() {
+  const text = document.getElementById("rawLabelsInput").value.trim();
+  if (!text) {
+    currentStops = [];
+    updatePackageCount();
+    return;
+  }
+
+  const lines = text.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  const stops = [];
+
+  lines.forEach((line, idx) => {
+    const parts = line.split("|").map((p) => p.trim());
+    let address = "";
+    let name = `Parada ${String(idx + 1).padStart(2, "0")}`;
+    let lat = null;
+    let lng = null;
+
+    if (parts.length >= 3) {
+      address = parts[0];
+      name = parts[1];
+      const coords = parts[2].split(",").map((c) => parseFloat(c.trim()));
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        lat = coords[0];
+        lng = coords[1];
+      }
+    } else if (parts.length === 2) {
+      address = parts[0];
+      const coords = parts[1].split(",").map((c) => parseFloat(c.trim()));
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        lat = coords[0];
+        lng = coords[1];
+      } else {
+        name = parts[1];
+      }
+    } else {
+      address = line;
+      const coordMatch = line.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+      if (coordMatch) {
+        lat = parseFloat(coordMatch[1]);
+        lng = parseFloat(coordMatch[2]);
+        address = line.replace(coordMatch[0], "").replace(/\|/g, "").trim();
+      }
+    }
+
+    // If still no lat/lng, distribute around origin for offline client-side testing
+    if (lat === null || lng === null) {
+      const angle = (idx * 2 * Math.PI) / (lines.length || 1);
+      const radius = 0.008 + (idx * 0.001);
+      lat = currentOrigin.lat + radius * Math.cos(angle);
+      lng = currentOrigin.lng + radius * Math.sin(angle);
+    }
+
+    stops.push({
+      name,
+      address,
+      lat,
+      lng,
+      tracking: `PKG-${String(idx + 1).padStart(3, "0")}`,
+    });
+  });
+
+  currentStops = stops;
+  updatePackageCount();
 }
 
 // GPS Location for Courier Origin
@@ -384,6 +480,8 @@ function solveClientSideTSP(origin, stops) {
 // MAIN OPTIMIZATION DISPATCHER
 // -------------------------------------------------------------
 async function runOptimization() {
+  parseRawInput();
+
   if (!currentStops || currentStops.length === 0) {
     alert("Adicione ou carregue ao menos um pacote para otimizar.");
     return;
