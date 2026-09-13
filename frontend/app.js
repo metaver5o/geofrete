@@ -31,6 +31,9 @@ document.addEventListener("DOMContentLoaded", () => {
     SubscriptionManager.activatePro("monthly", 30, "CHECKOUT-REDIRECT");
   }
 
+  // Check and process referral link from URL
+  ReferralManager.initReferralLinkFromURL();
+
   updateSubscriptionUI();
   updateUserHeaderUI();
 
@@ -2189,6 +2192,13 @@ const PLANS_CONFIG = {
     days: 7,
     formatted: "Grátis (7 Dias)",
   },
+  referral_reward: {
+    id: "referral_reward",
+    name: "Indicação Premiada",
+    price: 0.00,
+    days: 30,
+    formatted: "Grátis (10 Indicados)",
+  },
   daily: {
     id: "daily",
     name: "Diária Express",
@@ -2524,7 +2534,19 @@ const SubscriptionManager = {
 
   activatePro(planId = "monthly", durationDays = null, licenseKey = "PIX-CONFIRMED") {
     const days = durationDays || (PLANS_CONFIG[planId] ? PLANS_CONFIG[planId].days : 30);
-    const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    // If user already has active PRO, extend existing expiration date instead of overwriting!
+    let baseTime = Date.now();
+    if (this.isPro()) {
+      const existingExpiry = localStorage.getItem("geofrete_pro_expiry");
+      if (existingExpiry) {
+        const existingTime = new Date(existingExpiry).getTime();
+        if (existingTime > baseTime) {
+          baseTime = existingTime;
+        }
+      }
+    }
+    const expiryDate = new Date(baseTime + days * 24 * 60 * 60 * 1000);
 
     localStorage.setItem("geofrete_subscription_status", "pro");
     localStorage.setItem("geofrete_pro_plan", planId);
@@ -2546,6 +2568,189 @@ const SubscriptionManager = {
     updateSubscriptionUI();
   },
 };
+
+// -------------------------------------------------------------
+// REFERRAL SYSTEM (INDIQUE & GANHE: 10 PAGANTES = 1 MÊS GRÁTIS)
+// -------------------------------------------------------------
+const ReferralManager = {
+  getReferralCode() {
+    let code = localStorage.getItem("girarota_referral_code");
+    if (!code) {
+      // Generate a memorable code for driver: GIRA- + 4 alphanumeric uppercase chars
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let suffix = "";
+      for (let i = 0; i < 4; i++) {
+        suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      code = `GIRA-${suffix}`;
+      localStorage.setItem("girarota_referral_code", code);
+    }
+    return code;
+  },
+
+  getReferralLink() {
+    const code = this.getReferralCode();
+    const base = window.location.origin + window.location.pathname;
+    return `${base}?ref=${code}`;
+  },
+
+  getPayingCount() {
+    return parseInt(localStorage.getItem("girarota_referrals_paying_count") || "0", 10);
+  },
+
+  getTotalMonthsEarned() {
+    return parseInt(localStorage.getItem("girarota_referrals_total_months") || "0", 10);
+  },
+
+  initReferralLinkFromURL() {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get("ref");
+      if (ref && ref.trim()) {
+        const cleanRef = ref.trim().toUpperCase();
+        const myCode = this.getReferralCode();
+        if (cleanRef !== myCode) {
+          localStorage.setItem("girarota_referred_by", cleanRef);
+          console.log("Referral link detected from URL:", cleanRef);
+
+          if (!sessionStorage.getItem("girarota_ref_welcomed")) {
+            sessionStorage.setItem("girarota_ref_welcomed", "true");
+            setTimeout(() => {
+              showPaymentToast(`🎁 Convite de parceiro (${cleanRef}) ativado! Boas entregas no GiraRota.`);
+            }, 1200);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Referral URL parsing error:", e);
+    }
+  },
+
+  addPayingReferral() {
+    let count = this.getPayingCount() + 1;
+    let totalMonths = this.getTotalMonthsEarned();
+
+    if (count >= 10) {
+      totalMonths += 1;
+      count = 0; // Reset counter for the next 10
+
+      localStorage.setItem("girarota_referrals_paying_count", count.toString());
+      localStorage.setItem("girarota_referrals_total_months", totalMonths.toString());
+
+      // Grant 30 days of PRO
+      SubscriptionManager.activatePro("referral_reward", 30, `REF-REWARD-${Date.now()}`);
+      playFanfareBeep();
+      showPaymentToast("🎉 PARABÉNS! 10 parceiros pagantes atingidos: +1 MÊS GRÁTIS de GiraRota PRO liberado!");
+    } else {
+      localStorage.setItem("girarota_referrals_paying_count", count.toString());
+      const remaining = 10 - count;
+      showPaymentToast(`👏 +1 Parceiro pagante registrado! (${count}/10 - faltam ${remaining} para 1 mês grátis)`);
+    }
+
+    this.updateUI();
+  },
+
+  updateUI() {
+    const code = this.getReferralCode();
+    const link = this.getReferralLink();
+    const count = this.getPayingCount();
+    const totalMonths = this.getTotalMonthsEarned();
+    const remaining = Math.max(0, 10 - count);
+    const percent = Math.min(100, Math.round((count / 10) * 100));
+
+    const codeBadge = document.getElementById("referralCodeBadge");
+    if (codeBadge) codeBadge.textContent = code;
+
+    const linkInput = document.getElementById("referralLinkInput");
+    if (linkInput) linkInput.value = link;
+
+    const progressText = document.getElementById("referralProgressText");
+    if (progressText) progressText.textContent = `${count} de 10 pagantes`;
+
+    const progressBar = document.getElementById("referralProgressBar");
+    if (progressBar) progressBar.style.width = `${percent}%`;
+
+    const remainingText = document.getElementById("referralRemainingText");
+    if (remainingText) {
+      if (count === 0 && totalMonths > 0) {
+        remainingText.textContent = "Meta anterior conquistada! Faltam 10 pagantes para o próximo mês.";
+      } else {
+        remainingText.textContent = `Faltam ${remaining} pagante${remaining === 1 ? "" : "s"} para 1 mês grátis`;
+      }
+    }
+
+    const totalBadge = document.getElementById("referralTotalMonthsBadge");
+    if (totalBadge) {
+      totalBadge.textContent = `${totalMonths} ${totalMonths === 1 ? "mês resgatado" : "meses resgatados"}`;
+    }
+  },
+};
+
+function openReferralModal() {
+  ReferralManager.updateUI();
+  const modal = document.getElementById("referralModal");
+  if (modal) {
+    modal.classList.remove("hidden");
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+function closeReferralModal() {
+  const modal = document.getElementById("referralModal");
+  if (modal) {
+    modal.classList.add("hidden");
+  }
+}
+
+function copyReferralLink() {
+  const input = document.getElementById("referralLinkInput");
+  if (!input) return;
+  const link = ReferralManager.getReferralLink();
+  input.value = link;
+
+  const btnText = document.getElementById("copyReferralBtnText");
+  const onCopied = () => {
+    if (btnText) {
+      const orig = btnText.textContent;
+      btnText.textContent = "Copiado!";
+      setTimeout(() => { btnText.textContent = orig; }, 2000);
+    }
+    showPaymentToast("📋 Link de indicação copiado para a área de transferência!");
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(onCopied).catch(() => {
+      input.select();
+      document.execCommand("copy");
+      onCopied();
+    });
+  } else {
+    input.select();
+    document.execCommand("copy");
+    onCopied();
+  }
+}
+
+function shareReferralOnWhatsApp() {
+  const link = ReferralManager.getReferralLink();
+  const code = ReferralManager.getReferralCode();
+  const text = `🚚 Fala parceiro! Tô usando o GiraRota pra otimizar minhas rotas de entrega. É só bipar ou tirar foto das etiquetas dos pacotes que ele já monta a rota mais rápida e abre direto no Waze ou Google Maps.\n\nAcesse pelo meu link exclusivo: ${link}\nCódigo: ${code}`;
+  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  window.open(url, "_blank");
+}
+
+function simulateReferralPayment() {
+  ReferralManager.addPayingReferral();
+}
+
+function resetReferralSimulation() {
+  if (confirm("Deseja zerar o progresso dos testes de indicação?")) {
+    localStorage.removeItem("girarota_referrals_paying_count");
+    localStorage.removeItem("girarota_referrals_total_months");
+    ReferralManager.updateUI();
+    showPaymentToast("Progresso de indicação zerado.");
+  }
+}
 
 // -------------------------------------------------------------
 // BANCO CENTRAL DO BRASIL PIX EMVCO BR CODE GENERATOR
@@ -2742,6 +2947,11 @@ function copyPixCode() {
 function confirmPixPayment() {
   const plan = PLANS_CONFIG[currentSelectedPlan] || PLANS_CONFIG.monthly;
   SubscriptionManager.activatePro(plan.id, plan.days, `PIX-${Date.now()}`);
+
+  const ref = localStorage.getItem("girarota_referred_by");
+  if (ref) {
+    console.log(`Payment confirmed for user referred by: ${ref}`);
+  }
 }
 
 function activateWithLicenseKey() {
@@ -2885,6 +3095,7 @@ function updateSubscriptionUI() {
     }
   }
   updateUserHeaderUI();
+  ReferralManager.updateUI();
 }
 
 function playFanfareBeep() {
