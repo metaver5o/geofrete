@@ -1,4 +1,4 @@
-name: Deploy GEOFRETE to GitHub Pages
+name: Deploy GiraRota to GitHub Pages
 
 on:
   push:
