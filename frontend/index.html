@@ -1050,110 +1050,65 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
         </div>
       </div>
 
-      <!-- Payment Method Selection Tabs -->
+      <!-- Payment Section: Pix via Mercado Pago (Streamlined) -->
       <div class="border-t border-slate-800 pt-4 space-y-3">
-        <div class="flex items-center space-x-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
-          <button onclick="switchPaymentTab('pix')" id="payTabBtn-pix" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 bg-brand-600 text-white shadow">
-            <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
-            <span>Pix Instantâneo</span>
-          </button>
-          <button onclick="switchPaymentTab('voucher')" id="payTabBtn-voucher" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white">
-            <i data-lucide="key" class="w-3.5 h-3.5"></i>
-            <span>Chave / Cupom</span>
-          </button>
-        </div>
 
-        <!-- TAB 1: PIX INSTANTÂNEO & MERCADO PAGO -->
-        <div id="payTabContent-pix" class="space-y-3.5">
-          <!-- Bloco Principal: Mercado Pago Automático -->
-          <div class="bg-gradient-to-b from-blue-950/40 to-slate-950 border border-blue-500/40 rounded-2xl p-4 text-center space-y-3 shadow-lg shadow-blue-950/30">
-            <div class="inline-flex items-center space-x-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full text-[11px] font-bold">
-              <i data-lucide="zap" class="w-3.5 h-3.5 text-blue-400"></i>
-              <span>Liberação Automática em Segundos</span>
+          <!-- Mercado Pago Pix Payment Block -->
+          <div class="bg-gradient-to-b from-emerald-950/40 to-slate-950 border border-emerald-500/40 rounded-2xl p-4 text-center space-y-3 shadow-lg shadow-emerald-950/30">
+            <div class="inline-flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-[11px] font-bold">
+              <i data-lucide="zap" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Pix Instantâneo · Liberação Automática</span>
             </div>
 
             <div class="space-y-1">
               <div class="flex items-center justify-center space-x-2">
                 <span class="text-xs text-slate-400 font-medium">Total a pagar:</span>
-                <span id="pixModalAmount" class="font-black text-emerald-400 text-base">R$ 49,99</span>
+                <span id="pixModalAmount" class="font-black text-emerald-400 text-lg">R$ 49,99</span>
               </div>
-              <p class="text-slate-300 text-xs">
-                Gere o <strong>QR Code Pix oficial</strong> e pague com aprovação imediata pelo <strong>Mercado Pago</strong>.
+              <p class="text-slate-400 text-[11px]">
+                Pague via <strong class="text-white">Pix</strong> pelo Mercado Pago e o PRO é liberado na hora.
               </p>
             </div>
 
-            <!-- Mercado Pago Automated Payment Button -->
-            <button onclick="MercadoPagoManager.openCheckout()" class="w-full bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-500 hover:to-sky-500 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-blue-900/40 flex items-center justify-center space-x-2 text-xs sm:text-sm transition transform active:scale-98 cursor-pointer">
-              <i data-lucide="qr-code" class="w-4 h-4 text-white"></i>
-              <span>⚡ Pagar com Mercado Pago (Pix / Cartão Automático)</span>
+            <!-- Generate Pix Button -->
+            <button onclick="MercadoPagoManager.openCheckout()" class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-900/40 flex items-center justify-center space-x-2 text-sm transition transform active:scale-98 cursor-pointer">
+              <i data-lucide="qr-code" class="w-5 h-5 text-white"></i>
+              <span>Gerar QR Code Pix</span>
             </button>
 
-            <!-- Check Payment Status & WhatsApp Verification -->
+            <!-- Check Payment Status & WhatsApp -->
             <div class="flex items-center justify-between gap-2 pt-1">
               <button onclick="checkManualPixPaymentStatus()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2 px-3 rounded-xl border border-slate-700 text-xs flex items-center justify-center space-x-1.5 transition cursor-pointer" title="Consulta a API do Mercado Pago para liberar o plano imediatamente">
                 <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-amber-400"></i>
-                <span>Verificar se Pix foi Aprovado</span>
+                <span>Verificar Pagamento</span>
               </button>
               <button onclick="openWhatsAppProofSupport()" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 font-bold py-2 px-3 rounded-xl border border-emerald-500/30 text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Suporte direto via WhatsApp">
                 <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
-                <span>WhatsApp Suporte</span>
+                <span>Suporte</span>
               </button>
             </div>
           </div>
 
-          <!-- Bloco Secundário: Transferência Pix Direta (Manual) -->
-          <details class="bg-slate-950 border border-slate-800/80 rounded-2xl p-3.5 text-xs group">
-            <summary class="font-bold text-slate-400 hover:text-slate-200 cursor-pointer flex items-center justify-between select-none">
-              <span class="flex items-center space-x-2">
-                <i data-lucide="help-circle" class="w-3.5 h-3.5 text-slate-500"></i>
-                <span>Prefere transferir direto por Chave Pix manual?</span>
-              </span>
-              <span class="text-[10px] text-amber-500/80 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">Manual</span>
+          <!-- Voucher / License Key (Collapsible) -->
+          <details class="bg-slate-950 border border-slate-800/80 rounded-2xl p-3 text-xs">
+            <summary class="font-bold text-slate-500 hover:text-slate-300 cursor-pointer flex items-center space-x-2 select-none">
+              <i data-lucide="key" class="w-3.5 h-3.5 text-slate-600"></i>
+              <span>Tenho um código de ativação / voucher</span>
             </summary>
-            <div class="pt-3 space-y-3 border-t border-slate-800/60 mt-2.5">
-              <p class="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
-                ⚠️ <strong>Atenção:</strong> O Pix direto abaixo vai para conta bancária manual. Após pagar, é <strong>obrigatório enviar o comprovante no WhatsApp</strong> (+55 41 99170-3924) para liberação.
-              </p>
-              
-              <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-3">
-                <div class="bg-white p-2 rounded-xl flex items-center justify-center flex-shrink-0" style="min-width: 120px; min-height: 120px;">
-                  <div id="pixQrCodeBox" class="w-[120px] h-[120px] flex items-center justify-center"></div>
-                </div>
-                <div class="space-y-1.5 flex-1 w-full text-xs">
-                  <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-slate-400">Chave Pix:</span>
-                    <span id="pixModalKeyDisplay" class="font-mono text-emerald-400 font-bold">pix@girarota.com</span>
-                  </div>
-                  <div class="space-y-1">
-                    <label class="text-[10px] uppercase font-bold text-slate-400">Pix Copia e Cola:</label>
-                    <div class="relative">
-                      <input type="text" id="pixCodeStringInput" readonly class="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 pl-2.5 pr-16 text-[10px] font-mono text-slate-300 focus:outline-none select-all" value="">
-                      <button onclick="copyPixCode()" class="absolute right-1 top-1 bottom-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black px-2 rounded-md flex items-center space-x-1 transition">
-                        <span>Copiar</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+            <div class="pt-3 space-y-2 border-t border-slate-800/60 mt-2.5">
+              <div class="flex items-center space-x-2">
+                <input type="text" id="licenseKeyInput" placeholder="Ex: GFPRO-XXXX-XXXX" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:border-amber-500 focus:outline-none">
+                <button onclick="activateWithLicenseKey()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-4 py-2 rounded-xl transition cursor-pointer">
+                  Ativar
+                </button>
               </div>
+              <p class="text-[11px] text-slate-500">
+                Vouchers corporativos ou de parcerias emitidos pela administração do GiraRota.
+              </p>
             </div>
           </details>
-        </div>
 
-        <!-- TAB 2: VOUCHER / CHAVE DE LICENÇA -->
-        <div id="payTabContent-voucher" class="hidden space-y-3 py-1">
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-300">Insira seu código de ativação ou voucher de transportadora:</label>
-            <div class="flex items-center space-x-2">
-              <input type="text" id="licenseKeyInput" placeholder="Ex: GFPRO-XXXX-XXXX" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:border-amber-500 focus:outline-none">
-              <button onclick="activateWithLicenseKey()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-4 py-2 rounded-xl transition cursor-pointer">
-                Ativar
-              </button>
-            </div>
-            <p class="text-[11px] text-slate-400">
-              Vouchers corporativos ou de parcerias emitidos pela administração do GiraRota.
-            </p>
-          </div>
-        </div>
+      </div>
 
       </div>
       <!-- End of Scrollable Body -->
@@ -1470,6 +1425,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>

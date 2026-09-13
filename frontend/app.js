@@ -3133,8 +3133,6 @@ function openSubscriptionModal() {
   modal.classList.remove("hidden");
   updateSubscriptionUI();
   selectPlan(currentSelectedPlan || "monthly");
-  switchPaymentTab("pix");
-  startPixCountdown();
   if (typeof lucide !== "undefined") lucide.createIcons();
 }
 
