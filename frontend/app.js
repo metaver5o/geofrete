@@ -167,12 +167,43 @@ function initMap() {
     scrollWheelZoom: false,
   }).setView([currentOrigin.lat, currentOrigin.lng], 13);
 
-  // CartoDB Dark Matter tiles (modern, low glare for drivers)
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: "abcd",
-    maxZoom: 19,
-  }).addTo(map);
+  const cartoApiKey = "cb1_3iva_1_97907d15ae0df4f70c756a74";
+
+  // Official CARTO Basemaps authenticated with user's API Key
+  const voyagerLayer = L.tileLayer(
+    `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${cartoApiKey}`,
+    {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 20,
+    }
+  );
+
+  const darkLayer = L.tileLayer(
+    `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`,
+    {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 20,
+    }
+  );
+
+  // Set Voyager as active base layer
+  voyagerLayer.addTo(map);
+
+  // Add clean layer switcher
+  L.control
+    .layers(
+      {
+        "🗺️ CARTO Voyager": voyagerLayer,
+        "🌙 CARTO Noturno": darkLayer,
+      },
+      null,
+      { position: "topright" }
+    )
+    .addTo(map);
 
   markersGroup = L.layerGroup().addTo(map);
 }
