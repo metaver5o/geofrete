@@ -704,19 +704,22 @@ function toggleDelivered(index, isDelivered) {
 
   if (card) {
     if (isDelivered) {
-      card.classList.add("opacity-60", "bg-emerald-950/20", "border-emerald-800/50");
+      card.classList.add("opacity-60", "bg-red-950/20", "border-red-800/50");
       card.classList.remove("border-slate-800");
       if (badge) {
         badge.classList.remove("bg-brand-600");
-        badge.classList.add("bg-emerald-600");
+        badge.classList.add("bg-red-600");
         badge.textContent = "✓";
       }
-      if (pill) pill.classList.remove("hidden");
+      if (pill) {
+        pill.className = "text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.2 rounded font-semibold";
+        pill.classList.remove("hidden");
+      }
     } else {
-      card.classList.remove("opacity-60", "bg-emerald-950/20", "border-emerald-800/50");
+      card.classList.remove("opacity-60", "bg-red-950/20", "border-red-800/50");
       card.classList.add("border-slate-800");
       if (badge && renderedStops[index]) {
-        badge.classList.remove("bg-emerald-600");
+        badge.classList.remove("bg-red-600");
         badge.classList.add("bg-brand-600");
         badge.textContent = renderedStops[index].sequenceOrder;
       }
@@ -724,7 +727,7 @@ function toggleDelivered(index, isDelivered) {
     }
   }
 
-  // Update Pin on Map to Green / Emerald
+  // Update Pin on Map to Red (Vermelho)
   if (stopMarkers && stopMarkers[index]) {
     const marker = stopMarkers[index];
     const stop = renderedStops[index];
@@ -736,7 +739,7 @@ function toggleDelivered(index, isDelivered) {
         iconAnchor: [13, 13],
       });
       marker.setIcon(deliveredIcon);
-      marker.bindPopup(`<strong><span style="color: #10b981;">✓ ENTREGUE</span> (#${stop.sequenceOrder} - ${stop.name || "Entrega"})</strong><br>${stop.address}`);
+      marker.bindPopup(`<strong><span style="color: #ef4444;">✓ ENTREGUE</span> (#${stop.sequenceOrder} - ${stop.name || "Entrega"})</strong><br>${stop.address}`);
     } else {
       const normalIcon = L.divIcon({
         className: "stop-marker",
