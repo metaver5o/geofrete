@@ -1313,6 +1313,13 @@ async function simulateRapidScan(evt) {
 // SUBSCRIPTION & PAYMENT SYSTEM (GEOFRETE PRO)
 // -------------------------------------------------------------
 const PLANS_CONFIG = {
+  trial: {
+    id: "trial",
+    name: "Teste 7 Dias",
+    price: 0.00,
+    days: 7,
+    formatted: "Grátis (7 Dias)",
+  },
   daily: {
     id: "daily",
     name: "Diária Express",
@@ -1340,6 +1347,285 @@ let currentSelectedPlan = "monthly";
 let currentPaymentTab = "pix";
 let pixTimerInterval = null;
 let pixTimeRemaining = 900; // 15 minutes
+
+// -------------------------------------------------------------
+// PHONE INPUT MASK
+// -------------------------------------------------------------
+function maskPhone(input) {
+  let v = input.value.replace(/\D/g, "");
+  if (v.length > 11) v = v.substring(0, 11);
+  if (v.length > 6) {
+    input.value = `(${v.substring(0, 2)}) ${v.substring(2, 7)}-${v.substring(7)}`;
+  } else if (v.length > 2) {
+    input.value = `(${v.substring(0, 2)}) ${v.substring(2)}`;
+  } else if (v.length > 0) {
+    input.value = `(${v}`;
+  } else {
+    input.value = "";
+  }
+}
+
+// -------------------------------------------------------------
+// HARDWARE DEVICE FINGERPRINTER (ANTI-FRAUD IMEI ALTERNATIVE)
+// -------------------------------------------------------------
+const DeviceFingerprinter = {
+  async getFingerprint() {
+    const components = [];
+
+    // 1. WebGL Hardware GPU Renderer & Vendor (Unique per GPU chipset)
+    try {
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+      if (gl) {
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        if (debugInfo) {
+          components.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL));
+          components.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL));
+        }
+      }
+    } catch (e) {}
+
+    // 2. Canvas 2D Rendering Engine Fingerprint (Chipset raster differences)
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 200;
+      canvas.height = 50;
+      const ctx = canvas.getContext("2d");
+      ctx.textBaseline = "top";
+      ctx.font = "14px 'Arial', sans-serif";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "#f60";
+      ctx.fillRect(125, 1, 62, 20);
+      ctx.fillStyle = "#069";
+      ctx.fillText("GEOFRETE-7D-TRIAL, <canvas> 1.0", 2, 15);
+      ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+      ctx.fillText("GEOFRETE-7D-TRIAL, <canvas> 1.0", 4, 17);
+      components.push(canvas.toDataURL());
+    } catch (e) {}
+
+    // 3. AudioContext Hardware Fingerprint
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const audioCtx = new AudioContext();
+        components.push(audioCtx.sampleRate);
+        components.push(audioCtx.destination.maxChannelCount);
+      }
+    } catch (e) {}
+
+    // 4. Physical Screen Specs
+    components.push(window.screen.width);
+    components.push(window.screen.height);
+    components.push(window.screen.colorDepth);
+    components.push(window.devicePixelRatio || 1);
+
+    // 5. Hardware Capabilities
+    components.push(navigator.hardwareConcurrency || 4);
+    components.push(navigator.deviceMemory || 4);
+    components.push(navigator.platform || "");
+
+    // Fast 64-bit deterministic hash
+    const rawString = components.join("###");
+    let hash = 0;
+    for (let i = 0; i < rawString.length; i++) {
+      const char = rawString.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash |= 0;
+    }
+    const hexHash = Math.abs(hash).toString(16).toUpperCase().padStart(8, "0");
+    return `DEV-${hexHash}`;
+  },
+};
+
+// -------------------------------------------------------------
+// MULTI-STORE PERSISTENCE (LOCALSTORAGE + INDEXEDDB BLINDADO)
+// -------------------------------------------------------------
+const TrialStorage = {
+  dbName: "GEOFRETE_ANTI_FRAUD_DB",
+  storeName: "registered_devices",
+
+  async getDB() {
+    return new Promise((resolve) => {
+      if (!window.indexedDB) return resolve(null);
+      const req = indexedDB.open(this.dbName, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          db.createObjectStore(this.storeName, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = () => resolve(null);
+    });
+  },
+
+  async isDeviceRegistered(deviceId) {
+    // Check localStorage
+    const localList = JSON.parse(localStorage.getItem("geofrete_used_device_ids") || "[]");
+    if (localList.includes(deviceId)) return true;
+
+    // Check IndexedDB
+    try {
+      const db = await this.getDB();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        const tx = db.transaction(this.storeName, "readonly");
+        const store = tx.objectStore(this.storeName);
+        const req = store.get(deviceId);
+        req.onsuccess = () => {
+          if (req.result) {
+            localList.push(deviceId);
+            localStorage.setItem("geofrete_used_device_ids", JSON.stringify(localList));
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        };
+        req.onerror = () => resolve(false);
+      });
+    } catch (err) {
+      return false;
+    }
+  },
+
+  async recordDevice(deviceId, phone, name) {
+    // 1. Record in localStorage
+    const localDevices = JSON.parse(localStorage.getItem("geofrete_used_device_ids") || "[]");
+    if (!localDevices.includes(deviceId)) {
+      localDevices.push(deviceId);
+      localStorage.setItem("geofrete_used_device_ids", JSON.stringify(localDevices));
+    }
+
+    const localPhones = JSON.parse(localStorage.getItem("geofrete_used_phones") || "[]");
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (!localPhones.includes(cleanPhone)) {
+      localPhones.push(cleanPhone);
+      localStorage.setItem("geofrete_used_phones", JSON.stringify(localPhones));
+    }
+
+    // 2. Record in IndexedDB
+    try {
+      const db = await this.getDB();
+      if (!db) return;
+      const tx = db.transaction(this.storeName, "readwrite");
+      const store = tx.objectStore(this.storeName);
+      store.put({
+        id: deviceId,
+        phone: cleanPhone,
+        name: name,
+        registered_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn("IndexedDB record error:", err);
+    }
+  },
+
+  isPhoneRegistered(phone) {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const localPhones = JSON.parse(localStorage.getItem("geofrete_used_phones") || "[]");
+    return localPhones.includes(cleanPhone);
+  },
+};
+
+// -------------------------------------------------------------
+// TRIAL MANAGER & REGISTRATION FLOW
+// -------------------------------------------------------------
+const TrialManager = {
+  async registerTrial(name, phone, email) {
+    const errorBanner = document.getElementById("trialErrorBanner");
+    const errorMsg = document.getElementById("trialErrorMsg");
+    const submitBtn = document.getElementById("trialSubmitBtn");
+
+    if (errorBanner) errorBanner.classList.add("hidden");
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const cleanPhoneDigits = phone.replace(/\D/g, "");
+      if (cleanPhoneDigits.length < 10) {
+        alert("Por favor, digite um número de WhatsApp válido com DDD.");
+        if (submitBtn) submitBtn.disabled = false;
+        return false;
+      }
+
+      // 1. Generate Hardware Device Fingerprint
+      const deviceId = await DeviceFingerprinter.getFingerprint();
+
+      // 2. Anti-Fraud Check (Device & Phone)
+      const isDeviceUsed = await TrialStorage.isDeviceRegistered(deviceId);
+      const isPhoneUsed = TrialStorage.isPhoneRegistered(cleanPhoneDigits);
+
+      if (isDeviceUsed || isPhoneUsed) {
+        playWarningBeep();
+        if (errorBanner && errorMsg) {
+          const reason = isDeviceUsed
+            ? "Identificamos que este aparelho celular já utilizou o período de 7 dias grátis."
+            : `O número de WhatsApp (${cleanPhoneDigits.substring(0, 2)}) ... já utilizou o período de teste.`;
+          errorMsg.textContent = `${reason} Cada aparelho ou WhatsApp tem direito a 1 teste de 7 dias. Para continuar, assine o plano mensal por R$ 49,99.`;
+          errorBanner.classList.remove("hidden");
+        }
+        if (submitBtn) submitBtn.disabled = false;
+        return false;
+      }
+
+      // 3. Mark Device and Phone as Registered
+      await TrialStorage.recordDevice(deviceId, cleanPhoneDigits, name);
+      localStorage.setItem("geofrete_user_name", name);
+      localStorage.setItem("geofrete_user_phone", cleanPhoneDigits);
+      if (email) localStorage.setItem("geofrete_user_email", email);
+
+      // 4. Activate 7-Day PRO Access
+      SubscriptionManager.activatePro("trial", 7, `TRIAL-${deviceId}`);
+
+      showPaymentToast("🎉 Parabéns! Seus 7 dias grátis de GEOFRETE PRO foram ativados com sucesso!");
+      closeTrialSignupModal();
+      updateSubscriptionUI();
+      return true;
+    } catch (err) {
+      console.error("Trial registration error:", err);
+      alert("Erro ao registrar teste: " + err.message);
+      return false;
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  },
+};
+
+function openTrialSignupModal() {
+  const modal = document.getElementById("trialSignupModal");
+  if (!modal) return;
+
+  const errorBanner = document.getElementById("trialErrorBanner");
+  if (errorBanner) errorBanner.classList.add("hidden");
+
+  // Check if current user is already PRO or Trial
+  if (SubscriptionManager.isPro()) {
+    const days = SubscriptionManager.getDaysRemaining();
+    alert(`Você já possui acesso ativo (${days} dia${days === 1 ? "" : "s"} restantes)!`);
+    return;
+  }
+
+  modal.classList.remove("hidden");
+  if (typeof lucide !== "undefined") lucide.createIcons();
+}
+
+function closeTrialSignupModal() {
+  const modal = document.getElementById("trialSignupModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function handleTrialSignupSubmit(event) {
+  event.preventDefault();
+  const name = document.getElementById("trialNameInput")?.value.trim();
+  const phone = document.getElementById("trialPhoneInput")?.value.trim();
+  const email = document.getElementById("trialEmailInput")?.value.trim();
+
+  if (!name || !phone) {
+    alert("Preencha seu nome e seu WhatsApp.");
+    return;
+  }
+
+  TrialManager.registerTrial(name, phone, email);
+}
 
 const SubscriptionManager = {
   isPro() {
@@ -1652,8 +1938,13 @@ function updatePixTimerText() {
 
 function updateSubscriptionUI() {
   const isPro = SubscriptionManager.isPro();
+  const planId = localStorage.getItem("geofrete_pro_plan") || "monthly";
+  const isTrial = isPro && planId === "trial";
+
   const badge = document.getElementById("headerProBadge");
   const badgeText = document.getElementById("headerProText");
+  const headerTrialBtn = document.getElementById("headerTrialBtn");
+  const trialBanner = document.getElementById("trialCalloutBanner");
   const activeCard = document.getElementById("activeSubscriptionCard");
   const activePlanBadge = document.getElementById("activePlanBadge");
   const activeExpiryText = document.getElementById("activeExpiryText");
@@ -1661,19 +1952,54 @@ function updateSubscriptionUI() {
   if (isPro) {
     const days = SubscriptionManager.getDaysRemaining();
     const planName = SubscriptionManager.getPlanName();
-    if (badge) {
-      badge.className =
-        "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-black flex items-center space-x-1.5 shadow-sm transition transform active:scale-95 cursor-pointer";
+
+    if (isTrial) {
+      if (badge) {
+        badge.className =
+          "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/50 text-emerald-300 text-xs px-2.5 py-0.5 rounded-full font-black flex items-center space-x-1.5 shadow-sm transition transform active:scale-95 cursor-pointer";
+      }
+      if (badgeText) {
+        badgeText.textContent = `🎁 Teste Grátis (${days}d)`;
+      }
+    } else {
+      if (badge) {
+        badge.className =
+          "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-black flex items-center space-x-1.5 shadow-sm transition transform active:scale-95 cursor-pointer";
+      }
+      if (badgeText) {
+        badgeText.textContent = `⭐ GEOFRETE PRO (${days}d)`;
+      }
     }
-    if (badgeText) {
-      badgeText.textContent = `⭐ GEOFRETE PRO (${days}d)`;
-    }
+
+    if (headerTrialBtn) headerTrialBtn.classList.add("hidden");
+    if (trialBanner) trialBanner.classList.add("hidden");
+
     if (activeCard) {
       activeCard.classList.remove("hidden");
-      if (activePlanBadge) activePlanBadge.textContent = planName.toUpperCase();
-      if (activeExpiryText) activeExpiryText.textContent = `Assinatura válida por mais ${days} dia${days === 1 ? "" : "s"}.`;
+      if (activePlanBadge) activePlanBadge.textContent = isTrial ? "TESTE 7 DIAS GRÁTIS" : planName.toUpperCase();
+      if (activeExpiryText) activeExpiryText.textContent = `Acesso liberado por mais ${days} dia${days === 1 ? "" : "s"}.`;
     }
   } else {
+    // Check if device or user already used trial
+    const localUsed = JSON.parse(localStorage.getItem("geofrete_used_device_ids") || "[]");
+    const hasUsedTrial = localUsed.length > 0;
+
+    if (headerTrialBtn) {
+      if (hasUsedTrial) {
+        headerTrialBtn.classList.add("hidden");
+      } else {
+        headerTrialBtn.classList.remove("hidden");
+      }
+    }
+
+    if (trialBanner) {
+      if (hasUsedTrial) {
+        trialBanner.classList.add("hidden");
+      } else {
+        trialBanner.classList.remove("hidden");
+      }
+    }
+
     if (badge) {
       badge.className =
         "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-black flex items-center space-x-1.5 shadow-md shadow-amber-500/20 transition transform active:scale-95 cursor-pointer";
