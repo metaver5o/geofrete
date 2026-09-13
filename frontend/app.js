@@ -151,10 +151,10 @@ function loadSettings() {
   if (document.getElementById("adminGoogleClientIdInput")) document.getElementById("adminGoogleClientIdInput").value = googleClientId;
 
   // Load Mercado Pago Settings
-  const mpClientId = localStorage.getItem("geofrete_admin_mp_client_id") || "";
+  const mpClientId = localStorage.getItem("geofrete_admin_mp_client_id") || "6934117545630305";
   const mpClientSecret = localStorage.getItem("geofrete_admin_mp_client_secret") || "";
-  const mpAccessToken = localStorage.getItem("geofrete_admin_mp_access_token") || "";
-  const mpPublicKey = localStorage.getItem("geofrete_admin_mp_public_key") || "";
+  const mpAccessToken = localStorage.getItem("geofrete_admin_mp_access_token") || "APP_USR-6934117545630305-091300-af1bf18fa45ec8a6e72243bf7b687881-3687145136";
+  const mpPublicKey = localStorage.getItem("geofrete_admin_mp_public_key") || "APP_USR-eeb439de-dc53-4be2-8263-97fcc4fe0182";
   const mpLinkMonthly = localStorage.getItem("geofrete_admin_mp_link_monthly") || "";
   if (document.getElementById("adminMpClientIdInput")) document.getElementById("adminMpClientIdInput").value = mpClientId;
   if (document.getElementById("adminMpClientSecretInput")) document.getElementById("adminMpClientSecretInput").value = mpClientSecret;
@@ -3233,7 +3233,15 @@ function openWhatsAppProofSupport() {
 // -------------------------------------------------------------
 const MercadoPagoManager = {
   getAccessToken() {
-    return localStorage.getItem("geofrete_admin_mp_access_token") || "";
+    return localStorage.getItem("geofrete_admin_mp_access_token") || "APP_USR-6934117545630305-091300-af1bf18fa45ec8a6e72243bf7b687881-3687145136";
+  },
+
+  getPublicKey() {
+    return localStorage.getItem("geofrete_admin_mp_public_key") || "APP_USR-eeb439de-dc53-4be2-8263-97fcc4fe0182";
+  },
+
+  getClientId() {
+    return localStorage.getItem("geofrete_admin_mp_client_id") || "6934117545630305";
   },
 
   getPaymentLink(planId = "monthly") {
@@ -3373,8 +3381,9 @@ const MercadoPagoManager = {
       }
 
       const pref = await response.json();
-      if (pref.init_point) {
-        window.location.href = pref.init_point;
+      const checkoutUrl = pref.init_point || pref.sandbox_init_point;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
       } else {
         throw new Error("URL de checkout do Mercado Pago não retornada.");
       }
