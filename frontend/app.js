@@ -1048,6 +1048,8 @@ function showDuplicateAlertToast(trackingCode, stopNumber) {
   }
 }
 
+let nativeBarcodeDetectorTimer = null;
+
 async function openCameraScanner() {
   document.getElementById("cameraModal").classList.remove("hidden");
   sessionScanCount = 0;
@@ -1055,8 +1057,42 @@ async function openCameraScanner() {
 
   if (typeof Html5Qrcode !== "undefined") {
     try {
-      html5QrCode = new Html5Qrcode("scannerReader");
-      const config = { fps: 10, qrbox: { width: 260, height: 160 } };
+      // 1. Explicitly enable all 1D shipping barcodes (Code 128, EAN-13, Code 39, ITF, QR)
+      const formatsToSupport = typeof Html5QrcodeSupportedFormats !== "undefined" ? [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.DATA_MATRIX,
+      ] : undefined;
+
+      html5QrCode = new Html5Qrcode("scannerReader", {
+        formatsToSupport: formatsToSupport,
+        verbose: false,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true,
+        },
+      });
+
+      const config = {
+        fps: 20, // 20 frames per second for ultra-responsive capture
+        qrbox: (viewfinderWidth, viewfinderHeight) => ({
+          width: Math.floor(Math.min(viewfinderWidth * 0.95, 360)),
+          height: Math.floor(Math.min(viewfinderHeight * 0.7, 240)),
+        }),
+        aspectRatio: 1.333333,
+        videoConstraints: {
+          facingMode: "environment",
+          focusMode: "continuous",
+        },
+      };
+
       await html5QrCode.start(
         { facingMode: "environment" },
         config,
@@ -1065,8 +1101,17 @@ async function openCameraScanner() {
         },
         () => {}
       );
+
+      // Concurrently run native BarcodeDetector on the video element for instant GPU recognition
+      setTimeout(() => {
+        const readerVideo = document.querySelector("#scannerReader video");
+        if (readerVideo) {
+          startBarcodeDetectorLoop(readerVideo);
+        }
+      }, 400);
+
     } catch (err) {
-      console.warn("Html5Qrcode direct start failed, using native video stream fallback:", err);
+      console.warn("Html5Qrcode start failed, using native video stream fallback:", err);
       startNativeCameraFallback();
     }
   } else {
@@ -1080,16 +1125,66 @@ async function startNativeCameraFallback() {
   if (!video || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" }
+      video: {
+        facingMode: "environment",
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
     });
     video.srcObject = stream;
     video.classList.remove("hidden");
+    await video.play();
+
+    // Start BarcodeDetector loop on this fallback video
+    startBarcodeDetectorLoop(video);
   } catch (err) {
     console.warn("Native camera stream unavailable:", err);
   }
 }
 
+async function startBarcodeDetectorLoop(video) {
+  if (!("BarcodeDetector" in window)) return false;
+  try {
+    const supportedFormats = await BarcodeDetector.getSupportedFormats();
+    const desired = [
+      "code_128", "code_39", "code_93", "ean_13", "ean_8", "itf", "qr_code", "data_matrix"
+    ];
+    const formats = desired.filter((f) => supportedFormats.includes(f));
+    if (formats.length === 0) return false;
+
+    const detector = new BarcodeDetector({ formats });
+
+    if (nativeBarcodeDetectorTimer) {
+      clearInterval(nativeBarcodeDetectorTimer);
+      nativeBarcodeDetectorTimer = null;
+    }
+
+    nativeBarcodeDetectorTimer = setInterval(async () => {
+      if (!video || video.paused || video.ended || video.readyState < 2) return;
+      try {
+        const barcodes = await detector.detect(video);
+        if (barcodes && barcodes.length > 0) {
+          for (const b of barcodes) {
+            if (b.rawValue) {
+              handleScannedBarcode(b.rawValue);
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+    }, 100); // 10 scans per second
+    return true;
+  } catch (err) {
+    console.warn("BarcodeDetector setup error:", err);
+    return false;
+  }
+}
+
 async function closeCameraScanner() {
+  if (nativeBarcodeDetectorTimer) {
+    clearInterval(nativeBarcodeDetectorTimer);
+    nativeBarcodeDetectorTimer = null;
+  }
   if (html5QrCode) {
     try {
       await html5QrCode.stop();
@@ -1146,7 +1241,7 @@ function handleScannedBarcode(text) {
 
   let newStop = null;
 
-  // 3. CHECK VERIFIED MERCADO LIVRE REGISTRY
+  // 3. CHECK VERIFIED MERCADO LIVRE REGISTRY OR GENERATE NEAR CURRENT LOCATION
   if (KNOWN_PACKAGES_MAP[cleanId]) {
     const known = KNOWN_PACKAGES_MAP[cleanId];
     newStop = {
@@ -1156,24 +1251,26 @@ function handleScannedBarcode(text) {
       lng: known.lng,
       tracking: known.tracking,
     };
-
-    // Ensure origin is centered in Campo Largo
-    if (Math.abs(currentOrigin.lat - (-25.4592)) > 0.5) {
-      const originSample = SAMPLE_DATASETS.cl15.origin;
-      currentOrigin = { ...originSample };
-      document.getElementById("originAddress").value = currentOrigin.address;
-      document.getElementById("originLat").value = currentOrigin.lat;
-      document.getElementById("originLng").value = currentOrigin.lng;
-    }
   } else {
-    // Generic resolution from Campo Largo address pool
-    const sample = RANDOM_ADDRESS_POOL[currentStops.length % RANDOM_ADDRESS_POOL.length];
+    // Generate delivery stop distributed in current user's city/neighborhood
+    const baseLat = (currentOrigin && currentOrigin.lat) ? currentOrigin.lat : -25.4284;
+    const baseLng = (currentOrigin && currentOrigin.lng) ? currentOrigin.lng : -49.2733;
+    const baseCity = (currentOrigin && currentOrigin.address) ? currentOrigin.address.split("-")[1] || "Minha Cidade" : "Minha Cidade";
+
+    const angle = Math.random() * 2 * Math.PI;
+    const distKm = 0.5 + Math.random() * 2.0; // 500m to 2.5km from base
+    const dLat = (distKm * Math.cos(angle)) / 111.0;
+    const dLng = (distKm * Math.sin(angle)) / (111.0 * Math.cos((baseLat * Math.PI) / 180));
+
+    const streetNames = ["Rua das Flores", "Av. Brasil", "Rua Sete de Setembro", "Rua XV de Novembro", "Av. Tiradentes", "Rua Santos Dumont", "Alameda dos Ipês", "Rua Bela Vista"];
+    const street = `${streetNames[currentStops.length % streetNames.length]}, ${100 + Math.floor(Math.random() * 1400)} - ${baseCity.trim()}`;
+
     newStop = {
-      name: `Pacote #${currentStops.length + 1}`,
-      address: sample.address,
-      lat: sample.lat + (Math.random() - 0.5) * 0.003,
-      lng: sample.lng + (Math.random() - 0.5) * 0.003,
-      tracking: cleanId.length > 3 ? cleanId : `BR${Math.floor(100000000 + Math.random() * 900000000)}SP`,
+      name: `Cliente #${currentStops.length + 1}`,
+      address: street,
+      lat: Number((baseLat + dLat).toFixed(6)),
+      lng: Number((baseLng + dLng).toFixed(6)),
+      tracking: cleanId.length > 3 ? cleanId : `GR${Math.floor(100000000 + Math.random() * 900000000)}`,
     };
   }
 
