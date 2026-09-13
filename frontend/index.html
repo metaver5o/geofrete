@@ -37,6 +37,9 @@
   <!-- HTML5 QR Code & Barcode Scanner -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
+  <!-- Tesseract.js Client-Side OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -163,13 +166,18 @@
         </div>
       </div>
       <div class="flex items-center space-x-2 w-full sm:w-auto">
-        <button onclick="openCameraScanner()" class="flex-1 sm:flex-initial bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-emerald-900/40 flex items-center justify-center space-x-1.5 transition transform active:scale-98">
+        <button onclick="openCameraScanner()" class="flex-1 sm:flex-initial bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold py-2.5 px-3.5 rounded-xl shadow-lg shadow-emerald-900/40 flex items-center justify-center space-x-1.5 transition transform active:scale-98">
           <i data-lucide="camera" class="w-4 h-4"></i>
           <span>Abrir Câmera</span>
         </button>
-        <button onclick="simulateRapidScan()" class="flex-1 sm:flex-initial bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-purple-900/40 flex items-center justify-center space-x-1.5 transition transform active:scale-98">
+        <input type="file" id="labelPhotoInput" accept="image/*" class="hidden" onchange="handleLabelPhoto(event)">
+        <button onclick="document.getElementById('labelPhotoInput').click()" class="flex-1 sm:flex-initial bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold py-2.5 px-3.5 rounded-xl shadow-lg flex items-center justify-center space-x-1.5 transition transform active:scale-98">
+          <i data-lucide="image" class="w-4 h-4 text-brand-400"></i>
+          <span>Foto / OCR</span>
+        </button>
+        <button onclick="simulateRapidScan(event)" class="flex-1 sm:flex-initial bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold py-2.5 px-3.5 rounded-xl shadow-lg shadow-purple-900/40 flex items-center justify-center space-x-1.5 transition transform active:scale-98">
           <i data-lucide="zap" class="w-4 h-4"></i>
-          <span>Simular Bip Contínuo</span>
+          <span>Simular Lote</span>
         </button>
       </div>
     </div>
@@ -359,15 +367,31 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
         <span id="sessionScanCount" class="font-black text-emerald-400 text-sm">0 pacotes</span>
       </div>
 
+      <!-- Duplicate Warning Toast -->
+      <div id="duplicateAlertToast" class="hidden bg-amber-500/20 border border-amber-500/50 text-amber-300 p-2.5 rounded-xl text-xs flex items-center space-x-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
+        <span id="duplicateAlertMsg">Pacote já lido anteriormente!</span>
+      </div>
+
+      <!-- OCR Progress Toast -->
+      <div id="ocrProgressToast" class="hidden bg-blue-500/20 border border-blue-500/50 text-blue-300 p-2.5 rounded-xl text-xs flex items-center space-x-2 animate-pulse">
+        <i data-lucide="loader" class="w-4 h-4 text-blue-400 flex-shrink-0 animate-spin"></i>
+        <span id="ocrProgressMsg">Processando OCR da etiqueta...</span>
+      </div>
+
       <!-- Scanner Action Controls -->
-      <div class="grid grid-cols-2 gap-2">
-        <button onclick="triggerMockCapture()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2.5 px-3 rounded-xl font-medium border border-slate-700 transition flex items-center justify-center space-x-1.5">
-          <i data-lucide="barcode" class="w-4 h-4 text-amber-400"></i>
-          <span>Bipar Pacote (+1)</span>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="triggerMockCapture()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2.5 px-2 rounded-xl font-medium border border-slate-700 transition flex items-center justify-center space-x-1">
+          <i data-lucide="barcode" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Bipar (+1)</span>
         </button>
-        <button onclick="closeCameraScanner()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs py-2.5 px-3 rounded-xl font-bold transition flex items-center justify-center space-x-1.5">
-          <i data-lucide="check" class="w-4 h-4"></i>
-          <span>Finalizar e Ver Rota</span>
+        <button onclick="document.getElementById('labelPhotoInput').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2.5 px-2 rounded-xl font-medium border border-slate-700 transition flex items-center justify-center space-x-1">
+          <i data-lucide="image" class="w-3.5 h-3.5 text-brand-400"></i>
+          <span>Foto/OCR</span>
+        </button>
+        <button onclick="closeCameraScanner()" class="bg-brand-600 hover:bg-brand-500 text-white text-xs py-2.5 px-2 rounded-xl font-bold transition flex items-center justify-center space-x-1">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>Ver Rota</span>
         </button>
       </div>
     </div>
