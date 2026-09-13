@@ -36,6 +36,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
+  <!-- ZXing Multi-Format Barcode Engine (Code 128, EAN-13, QR, DataMatrix) -->
+  <script src="https://unpkg.com/@zxing/library@0.23.0/umd/index.min.js"></script>
   <!-- HTML5 QR Code & Barcode Scanner -->
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
@@ -645,28 +647,29 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
       </div>
 
       <!-- Viewfinder Container -->
-      <div class="relative bg-black rounded-xl overflow-hidden aspect-[4/3] flex items-center justify-center border-2 border-slate-800 shadow-inner">
-        <div id="scannerReader" class="w-full h-full"></div>
-        <video id="scannerVideo" autoplay playsinline muted class="hidden w-full h-full object-cover"></video>
+      <div class="relative bg-black rounded-2xl overflow-hidden aspect-[4/3] flex items-center justify-center border-2 border-emerald-500/50 shadow-inner">
+        <video id="scannerVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+        <div id="scannerReader" class="hidden w-full h-full"></div>
         
         <!-- Laser Target Guide Overlay -->
-        <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6">
-          <div class="w-4/5 h-28 border-2 border-emerald-400/80 rounded-xl relative shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center justify-center">
+        <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-4">
+          <div class="w-5/6 h-32 border-2 border-emerald-400 rounded-2xl relative shadow-[0_0_20px_rgba(16,185,129,0.35)] flex items-center justify-center">
             <!-- Animated red laser scanner line -->
-            <div class="w-full h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse"></div>
+            <div class="w-full h-0.5 bg-red-500 shadow-[0_0_10px_#ef4444] animate-pulse"></div>
             <!-- Target corners -->
-            <span class="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-emerald-400"></span>
-            <span class="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-emerald-400"></span>
-            <span class="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-emerald-400"></span>
-            <span class="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-emerald-400"></span>
+            <span class="absolute -top-1 -left-1 w-5 h-5 border-t-4 border-l-4 border-emerald-400 rounded-tl"></span>
+            <span class="absolute -top-1 -right-1 w-5 h-5 border-t-4 border-r-4 border-emerald-400 rounded-tr"></span>
+            <span class="absolute -bottom-1 -left-1 w-5 h-5 border-b-4 border-l-4 border-emerald-400 rounded-bl"></span>
+            <span class="absolute -bottom-1 -right-1 w-5 h-5 border-b-4 border-r-4 border-emerald-400 rounded-br"></span>
           </div>
-          <p class="text-[11px] text-slate-300 font-medium mt-3 bg-slate-950/80 px-3 py-1 rounded-full backdrop-blur-sm">
-            Aponte a câmera para o código de barras ou etiqueta
+          <p class="text-[11px] text-white font-bold mt-3 bg-slate-950/85 px-3.5 py-1 rounded-full backdrop-blur-sm border border-slate-800 shadow-md flex items-center space-x-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>Aponte para o código de barras (Bip Automático 1D/2D)</span>
           </p>
         </div>
 
         <!-- Scan Success Flash Overlay -->
-        <div id="scannerFlash" class="hidden absolute inset-0 bg-emerald-500/40 backdrop-blur-xs transition-opacity duration-150"></div>
+        <div id="scannerFlash" class="hidden absolute inset-0 bg-emerald-500/50 backdrop-blur-xs transition-opacity duration-150"></div>
       </div>
 
       <!-- Scanned in Session Counter -->
@@ -1233,6 +1236,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
 
   <!-- Application Datasets & Logic -->
   <script src="datasets.js"></script>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
