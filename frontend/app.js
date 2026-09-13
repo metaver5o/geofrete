@@ -878,7 +878,25 @@ function renderOptimizedRoute(result) {
     });
 
     const marker = L.marker([stop.lat, stop.lng], { icon: stopIcon })
-      .bindPopup(`<strong>#${stop.sequenceOrder} - ${stop.name || "Entrega"}</strong><br>${stop.address}`);
+      .bindPopup(`
+        <div class="space-y-1.5 p-1 text-slate-100 min-w-[210px]">
+          <div class="flex items-center justify-between">
+            <strong class="text-xs text-white">#${stop.sequenceOrder} - ${stop.name || "Entrega"}</strong>
+            <span class="text-[10px] text-emerald-400 font-bold">+${stop.distFromPrevKm ? stop.distFromPrevKm.toFixed(1) : "0"} km</span>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-tight">${stop.address}</p>
+          ${stop.tracking ? `<div class="text-[10px] text-slate-400 font-mono">Etiqueta: ${stop.tracking}</div>` : ""}
+          <div class="pt-1.5 flex items-center justify-between border-t border-slate-700/60 gap-1.5">
+            <button onclick="triggerArrivalAtStop(${idx}, true)" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] px-2.5 py-1 rounded-md transition flex items-center space-x-1 cursor-pointer shadow-sm">
+              <span>📍 Cheguei Aqui</span>
+            </button>
+            <div class="flex space-x-1">
+              <a href="${wazeUrl}" target="_blank" class="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-1 rounded-md font-semibold">Waze</a>
+              <a href="${gmapsUrl}" target="_blank" class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-1 rounded-md font-semibold">Maps</a>
+            </div>
+          </div>
+        </div>
+      `);
     markersGroup.addLayer(marker);
     stopMarkers.push(marker);
 
@@ -911,12 +929,16 @@ function renderOptimizedRoute(result) {
         </span>
       </div>
 
-      <div class="flex items-center justify-between pt-1 border-t border-slate-900">
+      <div class="flex flex-wrap items-center justify-between pt-1 border-t border-slate-900 gap-2">
         <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer select-none">
           <input type="checkbox" onchange="toggleDelivered(${idx}, this.checked)" class="rounded border-slate-700 text-brand-600 focus:ring-0">
           <span>Marcar como Entregue</span>
         </label>
-        <div class="flex space-x-1.5">
+        <div class="flex items-center space-x-1.5">
+          <button onclick="triggerArrivalAtStop(${idx}, true)" class="bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded-lg text-xs font-bold flex items-center space-x-1 transition cursor-pointer" title="Simular ou registrar chegada nesta parada">
+            <i data-lucide="map-pin" class="w-3 h-3 text-emerald-400"></i>
+            <span>Cheguei</span>
+          </button>
           <a href="${wazeUrl}" target="_blank" class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
             <span>Waze</span>
           </a>
@@ -939,6 +961,11 @@ function renderOptimizedRoute(result) {
 
   // Fit bounds to show all pins
   map.fitBounds(L.latLngBounds(latLngPoints), { padding: [35, 35] });
+
+  // Reset geofencing triggers and update fullscreen HUD
+  triggeredArrivalStops.clear();
+  updateFullscreenHUD();
+
   initLucide();
 }
 
@@ -1016,6 +1043,7 @@ function toggleDelivered(index, isDelivered) {
   }
 
   updateDeliveredStatus();
+  updateFullscreenHUD();
 }
 
 function updateDeliveredStatus() {
@@ -1037,6 +1065,420 @@ function updateDeliveredStatus() {
     } else {
       statusEl.textContent = "Rota calculada com sucesso!";
     }
+  }
+}
+
+// -------------------------------------------------------------
+// FULLSCREEN MAP & LIVE GEOFENCING / ARRIVAL RECOGNITION
+// -------------------------------------------------------------
+let liveGpsWatchId = null;
+let driverMarker = null;
+let driverAccuracyCircle = null;
+let triggeredArrivalStops = new Set();
+let currentArrivalStopIndex = null;
+
+// Toggle Fullscreen Map Mode
+function toggleMapFullscreen() {
+  const container = document.getElementById("mapCardContainer");
+  const fsTopOverlay = document.getElementById("fsTopOverlay");
+  const fsBottomOverlay = document.getElementById("fsBottomOverlay");
+  const fsBtnIcon = document.getElementById("btnMapFullscreenIcon");
+  const fsBtnText = document.getElementById("btnMapFullscreenText");
+
+  if (!container) return;
+
+  const isFs = container.classList.contains("map-fullscreen-active");
+
+  if (!isFs) {
+    // Enter Fullscreen
+    container.classList.add("map-fullscreen-active");
+    if (fsTopOverlay) fsTopOverlay.classList.remove("hidden");
+    if (renderedStops && renderedStops.length > 0 && fsBottomOverlay) {
+      fsBottomOverlay.classList.remove("hidden");
+      updateFullscreenHUD();
+    }
+    if (fsBtnIcon) fsBtnIcon.setAttribute("data-lucide", "minimize");
+    if (fsBtnText) fsBtnText.textContent = "Sair Tela Cheia";
+
+    // Attempt browser Fullscreen API (Desktop / Android Chrome)
+    try {
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(() => {});
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      }
+    } catch (e) {}
+
+    // Auto-start live GPS tracking to detect arrival if not already running
+    if (!liveGpsWatchId && navigator.geolocation) {
+      startLiveGpsTracking(true);
+    }
+  } else {
+    // Exit Fullscreen
+    container.classList.remove("map-fullscreen-active");
+    if (fsTopOverlay) fsTopOverlay.classList.add("hidden");
+    if (fsBottomOverlay) fsBottomOverlay.classList.add("hidden");
+    if (fsBtnIcon) fsBtnIcon.setAttribute("data-lucide", "maximize");
+    if (fsBtnText) fsBtnText.textContent = "Tela Cheia";
+
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } catch (e) {}
+  }
+
+  initLucide();
+
+  // Invalidate Leaflet dimensions smoothly
+  setTimeout(() => {
+    if (map) map.invalidateSize();
+  }, 100);
+  setTimeout(() => {
+    if (map) map.invalidateSize();
+  }, 350);
+}
+
+// Sync with native browser fullscreen changes (e.g. ESC key)
+document.addEventListener("fullscreenchange", handleFullscreenChangeEvent);
+document.addEventListener("webkitfullscreenchange", handleFullscreenChangeEvent);
+
+function handleFullscreenChangeEvent() {
+  const container = document.getElementById("mapCardContainer");
+  if (!container) return;
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    if (container.classList.contains("map-fullscreen-active")) {
+      toggleMapFullscreen();
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// REAL-TIME GPS TRACKING & GEOFENCE PROXIMITY WATCHER
+// -------------------------------------------------------------
+function toggleLiveGpsTracking() {
+  if (liveGpsWatchId) {
+    stopLiveGpsTracking();
+    showPaymentToast("Rastreamento GPS em tempo real desativado.");
+  } else {
+    startLiveGpsTracking(false);
+  }
+}
+
+function startLiveGpsTracking(silent = false) {
+  if (!navigator.geolocation) {
+    if (!silent) showPaymentToast("Geolocalização não suportada pelo seu dispositivo.");
+    return;
+  }
+
+  const dot = document.getElementById("liveGpsDot");
+  const label = document.getElementById("liveGpsLabel");
+  if (dot) {
+    dot.classList.remove("bg-slate-500");
+    dot.classList.add("bg-emerald-400", "animate-pulse");
+  }
+  if (label) label.textContent = "GPS Ativo";
+
+  if (!silent) showPaymentToast("📍 Rastreamento GPS ativo! O sistema detectará sua chegada automaticamente.");
+
+  liveGpsWatchId = navigator.geolocation.watchPosition(
+    (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const accuracy = position.coords.accuracy;
+
+      updateDriverMapPosition(lat, lng, accuracy);
+      checkProximityToStops(lat, lng);
+    },
+    (err) => {
+      console.warn("GPS watchPosition error:", err);
+      if (err.code === 1) { // PERMISSION_DENIED
+        stopLiveGpsTracking();
+        if (!silent) showPaymentToast("Acesso ao GPS não autorizado.");
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 4000,
+      timeout: 10000,
+    }
+  );
+}
+
+function stopLiveGpsTracking() {
+  if (liveGpsWatchId) {
+    navigator.geolocation.clearWatch(liveGpsWatchId);
+    liveGpsWatchId = null;
+  }
+  const dot = document.getElementById("liveGpsDot");
+  const label = document.getElementById("liveGpsLabel");
+  if (dot) {
+    dot.classList.remove("bg-emerald-400", "animate-pulse");
+    dot.classList.add("bg-slate-500");
+  }
+  if (label) label.textContent = "GPS Ao Vivo";
+
+  if (driverMarker && map) map.removeLayer(driverMarker);
+  if (driverAccuracyCircle && map) map.removeLayer(driverAccuracyCircle);
+  driverMarker = null;
+  driverAccuracyCircle = null;
+}
+
+function updateDriverMapPosition(lat, lng, accuracy) {
+  if (!map) return;
+
+  const driverIcon = L.divIcon({
+    className: "driver-live-marker",
+    html: "",
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+
+  if (!driverMarker) {
+    driverMarker = L.marker([lat, lng], { icon: driverIcon, zIndexOffset: 1000 })
+      .bindPopup("<strong>Sua Posição Atual (Entregador)</strong>");
+    driverMarker.addTo(map);
+  } else {
+    driverMarker.setLatLng([lat, lng]);
+  }
+
+  if (!driverAccuracyCircle) {
+    driverAccuracyCircle = L.circle([lat, lng], {
+      radius: Math.min(accuracy || 30, 60),
+      color: "#3b82f6",
+      fillColor: "#3b82f6",
+      fillOpacity: 0.15,
+      weight: 1,
+    }).addTo(map);
+  } else {
+    driverAccuracyCircle.setLatLng([lat, lng]);
+    driverAccuracyCircle.setRadius(Math.min(accuracy || 30, 60));
+  }
+}
+
+function checkProximityToStops(userLat, userLng) {
+  if (!renderedStops || renderedStops.length === 0) return;
+
+  const userLatLng = L.latLng(userLat, userLng);
+  const arrivalThresholdMeters = 75; // 75 meters radius for delivery arrival detection
+
+  for (let i = 0; i < renderedStops.length; i++) {
+    const stop = renderedStops[i];
+    if (isStopDelivered(i)) continue;
+
+    const stopLatLng = L.latLng(stop.lat, stop.lng);
+    const dist = userLatLng.distanceTo(stopLatLng);
+
+    // Update Fullscreen HUD proximity indicator for next stop
+    if (i === getNextPendingStopIndex()) {
+      const proxBadge = document.getElementById("fsProximityBadge");
+      if (proxBadge) {
+        if (dist <= arrivalThresholdMeters) {
+          proxBadge.className = "text-[10px] bg-emerald-500 text-slate-950 px-2 py-0.5 rounded-full font-black animate-pulse";
+          proxBadge.textContent = "📍 CHEGOU NO LOCAL";
+        } else if (dist < 1000) {
+          proxBadge.className = "text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold border border-emerald-500/30";
+          proxBadge.textContent = `A ${Math.round(dist)} metros`;
+        } else {
+          proxBadge.className = "text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-bold border border-blue-500/30";
+          proxBadge.textContent = `A ${(dist / 1000).toFixed(1)} km`;
+        }
+      }
+    }
+
+    // When within geofence and not yet triggered for this stop:
+    if (dist <= arrivalThresholdMeters && !triggeredArrivalStops.has(stop.sequenceOrder)) {
+      triggeredArrivalStops.add(stop.sequenceOrder);
+      triggerArrivalAtStop(i, false);
+      break;
+    }
+  }
+}
+
+function centerMapOnDriverOrNext() {
+  if (driverMarker) {
+    map.panTo(driverMarker.getLatLng(), { animate: true, duration: 0.8 });
+  } else {
+    const nextIdx = getNextPendingStopIndex();
+    if (nextIdx !== null && stopMarkers[nextIdx]) {
+      map.panTo(stopMarkers[nextIdx].getLatLng(), { animate: true, duration: 0.8 });
+    }
+  }
+}
+
+// -------------------------------------------------------------
+// ARRIVAL RECOGNITION & CONFIRMATION MODAL
+// -------------------------------------------------------------
+function playArrivalSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+
+    // Harmonic two-tone arrival chime: C5 (523.25Hz) -> G5 (783.99Hz)
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(523.25, now);
+    gain1.gain.setValueAtTime(0.25, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.25);
+
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(783.99, now + 0.15);
+    gain2.gain.setValueAtTime(0.3, now + 0.15);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+    osc2.start(now + 0.15);
+    osc2.stop(now + 0.55);
+
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200]);
+    }
+  } catch (err) {
+    console.debug("Arrival sound error:", err);
+  }
+}
+
+function triggerArrivalAtStop(idx, isManual = false) {
+  if (!renderedStops || !renderedStops[idx]) return;
+  const stop = renderedStops[idx];
+  currentArrivalStopIndex = idx;
+
+  playArrivalSound();
+
+  const modal = document.getElementById("arrivalModal");
+  if (!modal) return;
+
+  const badgeEl = document.getElementById("arrivalStopBadge");
+  const seqEl = document.getElementById("arrivalStopSequenceText");
+  const nameEl = document.getElementById("arrivalRecipientName");
+  const addrEl = document.getElementById("arrivalRecipientAddress");
+  const trackingEl = document.getElementById("arrivalTrackingCode");
+  const proxEl = document.getElementById("arrivalProximityText");
+  const receiverInput = document.getElementById("arrivalReceiverInput");
+
+  if (badgeEl) badgeEl.textContent = stop.sequenceOrder;
+  if (seqEl) seqEl.textContent = `Parada #${stop.sequenceOrder} da Rota`;
+  if (nameEl) nameEl.textContent = stop.name || "Destinatário";
+  if (addrEl) addrEl.textContent = stop.address;
+  if (trackingEl) trackingEl.textContent = stop.tracking || `BR-SP-00${stop.sequenceOrder}`;
+
+  if (proxEl) {
+    proxEl.innerHTML = isManual
+      ? `<i data-lucide="map-pin" class="w-3 h-3 text-emerald-400"></i> <span>Chegada no local confirmada</span>`
+      : `<i data-lucide="navigation" class="w-3 h-3 text-emerald-400"></i> <span>Raio de entrega atingido (~75m)</span>`;
+  }
+
+  if (receiverInput) receiverInput.value = "";
+
+  modal.classList.remove("hidden");
+  initLucide();
+}
+
+function closeArrivalModal() {
+  const modal = document.getElementById("arrivalModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function confirmArrivalDelivery() {
+  if (currentArrivalStopIndex === null || currentArrivalStopIndex === undefined) return;
+  const idx = currentArrivalStopIndex;
+  const stop = renderedStops[idx];
+
+  // Mark stop checkbox in DOM
+  const cb = document.querySelector(`#stop-card-${idx} input[type='checkbox']`);
+  if (cb) cb.checked = true;
+  toggleDelivered(idx, true);
+
+  playScanBeep();
+  showPaymentToast(`🎉 Entrega #${stop.sequenceOrder} (${stop.name || "Cliente"}) realizada com sucesso!`);
+  closeArrivalModal();
+
+  // Pan map to next pending stop if available
+  const nextIdx = getNextPendingStopIndex();
+  if (nextIdx !== null && stopMarkers[nextIdx]) {
+    const nextStop = renderedStops[nextIdx];
+    map.panTo([nextStop.lat, nextStop.lng], { animate: true, duration: 1 });
+  }
+}
+
+function reportDeliveryIssue() {
+  const issue = window.prompt("Informe o motivo da ocorrência (Ex: Destinatário Ausente, Endereço Incompleto, Recusado):", "Destinatário Ausente");
+  if (!issue) return;
+
+  if (currentArrivalStopIndex !== null && renderedStops[currentArrivalStopIndex]) {
+    const stop = renderedStops[currentArrivalStopIndex];
+    showPaymentToast(`⚠️ Ocorrência registrada para #${stop.sequenceOrder}: ${issue}`);
+    closeArrivalModal();
+  }
+}
+
+function isStopDelivered(index) {
+  const cb = document.querySelector(`#stop-card-${index} input[type='checkbox']`);
+  return cb ? cb.checked : false;
+}
+
+function getNextPendingStopIndex() {
+  if (!renderedStops || renderedStops.length === 0) return null;
+  const idx = renderedStops.findIndex((s, i) => !isStopDelivered(i));
+  return idx !== -1 ? idx : 0;
+}
+
+function openArrivalModalForCurrentStop() {
+  const idx = getNextPendingStopIndex();
+  if (idx !== null) {
+    triggerArrivalAtStop(idx, true);
+  } else {
+    showPaymentToast("Todas as paradas desta rota já foram entregues!");
+  }
+}
+
+function simulateArrivalAtNextStop() {
+  openArrivalModalForCurrentStop();
+}
+
+function updateFullscreenHUD() {
+  const fsBottomOverlay = document.getElementById("fsBottomOverlay");
+  if (!fsBottomOverlay) return;
+
+  if (!renderedStops || renderedStops.length === 0) {
+    fsBottomOverlay.classList.add("hidden");
+    return;
+  }
+
+  const nextIdx = getNextPendingStopIndex();
+  const allDelivered = renderedStops.every((s, i) => isStopDelivered(i));
+
+  const container = document.getElementById("mapCardContainer");
+  const isFs = container && container.classList.contains("map-fullscreen-active");
+
+  if (isFs && !allDelivered) {
+    fsBottomOverlay.classList.remove("hidden");
+  } else {
+    fsBottomOverlay.classList.add("hidden");
+  }
+
+  if (nextIdx !== null && renderedStops[nextIdx]) {
+    const stop = renderedStops[nextIdx];
+    const badge = document.getElementById("fsCurrentStopBadge");
+    const name = document.getElementById("fsCurrentStopName");
+    const addr = document.getElementById("fsCurrentStopAddress");
+    const waze = document.getElementById("fsWazeBtn");
+    const gmaps = document.getElementById("fsGmapsBtn");
+
+    if (badge) badge.textContent = stop.sequenceOrder;
+    if (name) name.textContent = stop.name || "Destinatário";
+    if (addr) addr.textContent = stop.address;
+    if (waze) waze.href = `https://waze.com/ul?ll=${stop.lat},${stop.lng}&navigate=yes`;
+    if (gmaps) gmaps.href = `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`;
   }
 }
 
