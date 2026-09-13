@@ -895,6 +895,10 @@ function renderOptimizedRoute(result) {
   orderedStops.forEach((stop, idx) => {
     latLngPoints.push([stop.lat, stop.lng]);
 
+    // Navigation links for marker popup and stop card
+    const wazeUrl = `https://waze.com/ul?ll=${stop.lat},${stop.lng}&navigate=yes`;
+    const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`;
+
     // Numbered marker
     const stopIcon = L.divIcon({
       className: "stop-marker",
@@ -927,9 +931,6 @@ function renderOptimizedRoute(result) {
     stopMarkers.push(marker);
 
     // Stop Card in Itinerary List
-    const wazeUrl = `https://waze.com/ul?ll=${stop.lat},${stop.lng}&navigate=yes`;
-    const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`;
-
     const card = document.createElement("div");
     card.className = "bg-slate-950 border border-slate-800 rounded-xl p-3.5 hover:border-slate-700 transition space-y-2";
     card.id = `stop-card-${idx}`;
