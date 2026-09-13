@@ -200,44 +200,198 @@ function updateModeUI(mode) {
   initLucide();
 }
 
-// Load Samples (27 Capitais do Brasil)
-function loadSampleBatch(key) {
-  const sample = SAMPLE_DATASETS[key];
-  if (!sample) return;
+// -------------------------------------------------------------
+// SIMULATION / TEST ROUTE ENGINE (GPS & LOCAL FALLBACK)
+// -------------------------------------------------------------
+async function simulateRouteFromGPS() {
+  const btn = document.getElementById("btnGpsSimulation");
+  const btnText = document.getElementById("btnGpsSimulationText");
+  const origText = btnText ? btnText.textContent : "🎯 Simular Rota no Meu GPS";
+
+  if (!navigator.geolocation) {
+    showPaymentToast("Seu navegador não suporta GPS. Carregando rota de teste...");
+    simulateRouteFallback();
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  if (btnText) btnText.textContent = "Obtendo sua localização GPS...";
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      try {
+        const userLat = pos.coords.latitude;
+        const userLng = pos.coords.longitude;
+
+        if (btnText) btnText.textContent = "Detectando sua cidade...";
+
+        let cityName = "Minha Cidade";
+        let stateCode = "BR";
+        let roadName = "Meu Ponto de Partida";
+
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3500);
+          const resp = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLat}&lon=${userLng}&zoom=14&addressdetails=1`,
+            {
+              headers: { "Accept-Language": "pt-BR" },
+              signal: controller.signal,
+            }
+          );
+          clearTimeout(timeoutId);
+          if (resp.ok) {
+            const data = await resp.json();
+            const addr = data.address || {};
+            cityName =
+              addr.city ||
+              addr.town ||
+              addr.municipality ||
+              addr.village ||
+              addr.suburb ||
+              "Minha Cidade";
+            stateCode = addr.state_code || addr.state || "BR";
+            roadName = addr.road || addr.suburb || "Base Operacional";
+          }
+        } catch (err) {
+          console.warn("Reverse geocode timeout/offline:", err);
+        }
+
+        // Set Origin as user's current GPS position
+        currentOrigin = {
+          address: `${roadName} - ${cityName}, ${stateCode}`,
+          lat: Number(userLat.toFixed(6)),
+          lng: Number(userLng.toFixed(6)),
+        };
+
+        const originInput = document.getElementById("originAddress");
+        if (originInput) originInput.value = currentOrigin.address;
+        const latInput = document.getElementById("originLat");
+        if (latInput) latInput.value = currentOrigin.lat;
+        const lngInput = document.getElementById("originLng");
+        if (lngInput) lngInput.value = currentOrigin.lng;
+
+        // Generate 10 realistic stops in natural radial distribution around user
+        const recipientPool = [
+          "Lucas Oliveira", "Mariana Costa", "Carlos Eduardo", "Juliana Mendes",
+          "Rafael Duarte", "Camila Pereira", "Rodrigo Santos", "Beatriz Lima",
+          "Fernando Rocha", "Larissa Souza"
+        ];
+        const streetPool = [
+          "Rua das Flores", "Av. Brasil", "Rua Sete de Setembro", "Rua XV de Novembro",
+          "Av. Tiradentes", "Rua Santos Dumont", "Alameda dos Ipês", "Rua Bela Vista",
+          "Rua Amazonas", "Rua da Paz"
+        ];
+
+        const generatedStops = [];
+        const totalStops = 10;
+
+        for (let i = 0; i < totalStops; i++) {
+          const angle = (i / totalStops) * 2 * Math.PI + (Math.random() * 0.4 - 0.2);
+          const distKm = 0.5 + Math.random() * 2.2; // 500m to 2.7km radius
+          const dLat = (distKm * Math.cos(angle)) / 111.0;
+          const dLng =
+            (distKm * Math.sin(angle)) / (111.0 * Math.cos((userLat * Math.PI) / 180));
+
+          const sLat = Number((userLat + dLat).toFixed(6));
+          const sLng = Number((userLng + dLng).toFixed(6));
+          const num = 40 + Math.floor(Math.random() * 1200);
+          const street = `${streetPool[i % streetPool.length]}, ${num} - ${cityName}`;
+          const recipient = recipientPool[i % recipientPool.length];
+          const tracking = `GR${Math.floor(100000 + Math.random() * 900000)}`;
+
+          generatedStops.push({
+            name: recipient,
+            address: street,
+            lat: sLat,
+            lng: sLng,
+            tracking: tracking,
+          });
+        }
+
+        currentStops = generatedStops;
+        updateBatchTextArea();
+        updatePackageCount();
+
+        if (markersGroup) markersGroup.clearLayers();
+        if (routePolyline && map) map.removeLayer(routePolyline);
+
+        if (map && currentOrigin.lat && currentOrigin.lng) {
+          map.flyTo([currentOrigin.lat, currentOrigin.lng], 14, { duration: 1.2 });
+        }
+
+        showPaymentToast(`📍 GPS detectado! 10 entregas geradas em ${cityName}. Otimizando rota...`);
+
+        // Automatically run route optimization
+        setTimeout(() => {
+          runOptimization();
+        }, 500);
+      } catch (e) {
+        console.error("GPS simulation error:", e);
+        simulateRouteFallback();
+      } finally {
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.textContent = origText;
+        if (typeof lucide !== "undefined") lucide.createIcons();
+      }
+    },
+    (err) => {
+      console.warn("GPS permission error:", err);
+      showPaymentToast("GPS não autorizado. Carregando rota de teste padrão...");
+      if (btn) btn.disabled = false;
+      if (btnText) btnText.textContent = origText;
+      simulateRouteFallback();
+    },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+  );
+}
+
+function simulateRouteFallback() {
+  const sample = (typeof SAMPLE_DATASETS !== "undefined" && (SAMPLE_DATASETS.curitiba || SAMPLE_DATASETS.sao_paulo)) || {
+    name: "Curitiba - PR",
+    origin: { address: "Praça Tiradentes, 100 - Centro, Curitiba - PR", lat: -25.4284, lng: -49.2733 },
+    items: [
+      { name: "Ana Silva", address: "Rua XV de Novembro, 784 - Centro, Curitiba - PR", lat: -25.429, lng: -49.268, tracking: "GR101" },
+      { name: "Carlos Eduardo", address: "Av. Batel, 1550 - Batel, Curitiba - PR", lat: -25.442, lng: -49.288, tracking: "GR102" },
+      { name: "Juliana Mendes", address: "Av. Sete de Setembro, 3200 - Centro, Curitiba - PR", lat: -25.438, lng: -49.2695, tracking: "GR103" },
+      { name: "Lucas Oliveira", address: "Rua Comendador Araújo, 510 - Batel, Curitiba - PR", lat: -25.436, lng: -49.28, tracking: "GR104" },
+      { name: "Mariana Costa", address: "Av. Cândido de Abreu, 650 - Centro Cívico, Curitiba - PR", lat: -25.419, lng: -49.269, tracking: "GR105" },
+      { name: "Rodrigo Santos", address: "Rua Marechal Deodoro, 630 - Centro, Curitiba - PR", lat: -25.43, lng: -49.266, tracking: "GR106" },
+      { name: "Beatriz Lima", address: "Av. Silva Jardim, 1800 - Água Verde, Curitiba - PR", lat: -25.444, lng: -49.277, tracking: "GR107" },
+      { name: "Fernando Rocha", address: "Rua Visconde de Nácar, 1100 - Centro, Curitiba - PR", lat: -25.434, lng: -49.278, tracking: "GR108" },
+      { name: "Camila Pereira", address: "Rua Brigadeiro Franco, 2300 - Centro, Curitiba - PR", lat: -25.437, lng: -49.285, tracking: "GR109" },
+      { name: "Rafael Duarte", address: "Rua Mateus Leme, 1200 - São Lourenço, Curitiba - PR", lat: -25.411, lng: -49.267, tracking: "GR110" }
+    ]
+  };
 
   currentOrigin = { ...sample.origin };
-  document.getElementById("originAddress").value = currentOrigin.address;
-  document.getElementById("originLat").value = currentOrigin.lat;
-  document.getElementById("originLng").value = currentOrigin.lng;
+  const originInput = document.getElementById("originAddress");
+  if (originInput) originInput.value = currentOrigin.address;
+  const latInput = document.getElementById("originLat");
+  if (latInput) latInput.value = currentOrigin.lat;
+  const lngInput = document.getElementById("originLng");
+  if (lngInput) lngInput.value = currentOrigin.lng;
 
-  currentStops = JSON.parse(JSON.stringify(sample.items));
+  currentStops = JSON.parse(JSON.stringify(sample.items.slice(0, 10)));
   updateBatchTextArea();
   updatePackageCount();
 
-  // Synchronize select dropdown
-  const select = document.getElementById("capitalSelect");
-  if (select && select.value !== key) {
-    select.value = key;
-  }
+  if (markersGroup) markersGroup.clearLayers();
+  if (routePolyline && map) map.removeLayer(routePolyline);
 
-  // Smoothly center and fly map to the capital
   if (map && currentOrigin.lat && currentOrigin.lng) {
     map.flyTo([currentOrigin.lat, currentOrigin.lng], 13, { duration: 1.2 });
   }
 
-  showPaymentToast(`Lote carregado: ${sample.name || key} (${currentStops.length} pacotes)`);
+  showPaymentToast("Lote de teste padrão carregado! Otimizando rota...");
+  setTimeout(() => {
+    runOptimization();
+  }, 400);
 }
 
-function loadRandomCapitalBatch() {
-  const capitalKeys = [
-    "curitiba", "florianopolis", "porto_alegre",
-    "sao_paulo", "rio_de_janeiro", "belo_horizonte", "vitoria",
-    "brasilia", "goiania", "cuiaba", "campo_grande",
-    "salvador", "recife", "fortaleza", "natal", "joao_pessoa", "maceio", "aracaju", "teresina", "sao_luis",
-    "manaus", "belem", "porto_velho", "palmas", "rio_branco", "macapa", "boa_vista"
-  ];
-  const randomKey = capitalKeys[Math.floor(Math.random() * capitalKeys.length)];
-  loadSampleBatch(randomKey);
+// Fallback legacy support for sample key
+function loadSampleBatch(key) {
+  simulateRouteFallback();
 }
 
 function updateBatchTextArea() {
