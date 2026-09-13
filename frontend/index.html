@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>GEOFRETE | Roteirização Inteligente Last-Mile</title>
+  <title>GiraRota | Bipou a Etiqueta, a Rota tá Feita</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="apple-touch-icon" href="assets/logo.png">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#2563eb">
-  <meta name="description" content="Otimizador de rotas de entrega last-mile para entregadores autônomos. Escaneamento em lote, geocodificação e TSP.">
+  <meta name="theme-color" content="#10b981">
+  <meta name="description" content="GiraRota - Bipou a etiqueta, a rota tá feita. Otimizador de rotas last-mile para entregadores, motoboys e vans com scanner inteligente.">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -125,12 +127,14 @@
   <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <div class="bg-brand-600 p-2 rounded-xl text-white shadow-lg shadow-brand-600/30">
-          <i data-lucide="navigation" class="w-6 h-6"></i>
+        <div class="w-10 h-10 rounded-2xl overflow-hidden shadow-lg shadow-emerald-500/20 border border-emerald-500/30 flex-shrink-0 bg-slate-900">
+          <img src="assets/logo.png" alt="GiraRota" class="w-full h-full object-cover">
         </div>
         <div>
           <div class="flex items-center space-x-2">
-            <h1 class="text-xl font-black tracking-tight text-white">GEOFRETE</h1>
+            <h1 class="text-xl font-black tracking-tight text-white flex items-center">
+              <span>Gira</span><span class="text-emerald-400">Rota</span>
+            </h1>
             <button id="headerTrialBtn" onclick="openTrialSignupModal()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs px-2.5 py-0.5 rounded-full font-black flex items-center space-x-1 shadow-md shadow-emerald-500/20 transition transform active:scale-95 cursor-pointer" title="Clique para testar 7 dias grátis">
               <i data-lucide="gift" class="w-3.5 h-3.5 text-slate-950"></i>
               <span id="headerTrialText">7 Dias Grátis</span>
@@ -140,7 +144,7 @@
               <span id="headerProText">R$ 49,99/mês • Assinar PRO</span>
             </button>
           </div>
-          <p class="text-xs text-slate-400">Roteirizador Last-Mile para Entregadores</p>
+          <p class="text-xs text-slate-400">Bipou a etiqueta, a rota tá feita</p>
         </div>
       </div>
 
@@ -686,7 +690,7 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
               <span>Começar 7 Dias Grátis</span>
               <span class="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 uppercase">Trial VIP</span>
             </h3>
-            <p class="text-xs text-slate-400">Acesso completo e irrestrito ao GEOFRETE PRO</p>
+            <p class="text-xs text-slate-400">Acesso completo e irrestrito ao GiraRota PRO</p>
           </div>
         </div>
         <button onclick="closeTrialSignupModal()" class="text-slate-400 hover:text-white p-1 rounded-lg transition">
@@ -775,7 +779,7 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           </div>
           <div>
             <h3 class="font-black text-lg text-white tracking-tight flex items-center space-x-2">
-              <span>Assinatura GEOFRETE PRO</span>
+              <span>Assinatura GiraRota PRO</span>
               <span class="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30 uppercase tracking-wider">Acesso Total</span>
             </h3>
             <p class="text-xs text-slate-400">Roteirização ilimitada, OCR avançado e máxima economia de combustível</p>
@@ -927,7 +931,7 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           <p class="text-xs text-slate-300">
             Prefere pagar no <strong>Cartão de Crédito</strong> em até 12x ou com saldo Mercado Pago / Stripe?
           </p>
-          <a id="externalCheckoutLink" href="https://mpago.la/geofrete" target="_blank" rel="noopener noreferrer" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg flex items-center justify-center space-x-2 transition transform active:scale-98">
+          <a id="externalCheckoutLink" href="https://mpago.la/girarota" target="_blank" rel="noopener noreferrer" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg flex items-center justify-center space-x-2 transition transform active:scale-98">
             <i data-lucide="external-link" class="w-4 h-4"></i>
             <span>Ir para Checkout Seguro (Mercado Pago / Stripe)</span>
           </a>
@@ -941,13 +945,13 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           <div class="space-y-1.5">
             <label class="text-xs font-bold text-slate-300">Insira seu código de ativação ou voucher de transportadora:</label>
             <div class="flex items-center space-x-2">
-              <input type="text" id="licenseKeyInput" placeholder="Ex: GEOFRETE-PRO-VIP" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:border-amber-500 focus:outline-none">
+              <input type="text" id="licenseKeyInput" placeholder="Ex: GIRAROTA-PRO-VIP" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono uppercase tracking-wider focus:border-amber-500 focus:outline-none">
               <button onclick="activateWithLicenseKey()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-4 py-2 rounded-xl transition">
                 Ativar
               </button>
             </div>
             <p class="text-[11px] text-slate-400">
-              Dica: Utilize a chave de demonstração <strong class="text-amber-300 font-mono">GEOFRETE-PRO-VIP</strong> para testar a ativação completa.
+              Dica: Utilize a chave de demonstração <strong class="text-amber-300 font-mono">GIRAROTA-PRO-VIP</strong> para testar a ativação completa.
             </p>
           </div>
         </div>
@@ -1025,12 +1029,12 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           </p>
           <div class="space-y-1.5 pt-1">
             <label class="font-semibold text-slate-400 text-[11px]">Sua Chave Pix (E-mail, CPF, CNPJ ou Celular):</label>
-            <input type="text" id="adminPixKeyInput" value="suporte@geofrete.com.br" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="sua-chave-pix@banco.com">
+            <input type="text" id="adminPixKeyInput" value="suporte@girarota.com.br" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="sua-chave-pix@banco.com">
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div class="space-y-1">
               <label class="font-semibold text-slate-400 text-[11px]">Nome do Titular:</label>
-              <input type="text" id="adminPixNameInput" value="GEOFRETE BRASIL" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono">
+              <input type="text" id="adminPixNameInput" value="GIRAROTA BRASIL" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono">
             </div>
             <div class="space-y-1">
               <label class="font-semibold text-slate-400 text-[11px]">Cidade:</label>
@@ -1039,7 +1043,7 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           </div>
           <div class="space-y-1.5 pt-1">
             <label class="font-semibold text-slate-400 text-[11px]">Link de Checkout do Mercado Pago / Stripe:</label>
-            <input type="text" id="adminCheckoutUrlInput" value="https://mpago.la/geofrete" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="https://mpago.la/...">
+            <input type="text" id="adminCheckoutUrlInput" value="https://mpago.la/girarota" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="https://mpago.la/...">
           </div>
         </div>
 
@@ -1054,11 +1058,11 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           </p>
           <div class="space-y-1.5 pt-1">
             <label class="font-semibold text-slate-400 text-[11px]">Privy App ID (dashboard.privy.io):</label>
-            <input type="text" id="adminPrivyAppIdInput" value="cl_geofrete_demo_2026" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="cl_...">
+            <input type="text" id="adminPrivyAppIdInput" value="cl_girarota_demo_2026" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="cl_...">
           </div>
           <div class="space-y-1.5">
             <label class="font-semibold text-slate-400 text-[11px]">Google OAuth Client ID (Google Cloud Console):</label>
-            <input type="text" id="adminGoogleClientIdInput" value="geofrete-google-client-id" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="...apps.googleusercontent.com">
+            <input type="text" id="adminGoogleClientIdInput" value="girarota-google-client-id" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="...apps.googleusercontent.com">
           </div>
         </div>
       </div>
@@ -1074,7 +1078,7 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
   <!-- Footer -->
   <footer class="bg-slate-900 border-t border-slate-800 py-4 text-center text-xs text-slate-500">
     <div class="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-      <div>GEOFRETE &copy; 2026 - Roteirização Last-Mile Inteligente</div>
+      <div>GiraRota &copy; 2026 - Roteirização Last-Mile Inteligente</div>
       <div class="flex items-center space-x-4">
         <span>Compatível com Waze & Google Maps</span>
         <a href="https://github.com" target="_blank" class="hover:text-slate-300">GitHub Pages</a>

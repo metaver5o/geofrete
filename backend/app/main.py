@@ -11,21 +11,21 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-logger = logging.getLogger("geofrete")
+logger = logging.getLogger("girarota")
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown lifespan events."""
-    logger.info("Initializing GEOFRETE Database schema and extensions...")
+    logger.info("Initializing GiraRota Database schema and extensions...")
     try:
         init_db()
         logger.info("Database schema initialized successfully.")
     except Exception as e:
         logger.warning(f"Database auto-initialization deferred: {e}")
     yield
-    logger.info("Shutting down GEOFRETE backend service.")
+    logger.info("Shutting down GiraRota backend service.")
 
 
 app = FastAPI(

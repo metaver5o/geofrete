@@ -1,4 +1,4 @@
-// GEOFRETE - Client Application Logic
+// GiraRota - Client Application Logic
 // Supports both Standalone In-Browser Optimization (GitHub Pages) and Live FastAPI Backend
 
 let map = null;
@@ -122,10 +122,10 @@ function loadSettings() {
   updateModeUI(mode);
 
   // Load Admin Payment Settings
-  const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "suporte@geofrete.com.br";
-  const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GEOFRETE BRASIL";
+  const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "suporte@girarota.com.br";
+  const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GIRAROTA BRASIL";
   const pixCity = localStorage.getItem("geofrete_admin_pix_city") || "CAMPO LARGO";
-  const checkoutUrl = localStorage.getItem("geofrete_admin_checkout_url") || "https://mpago.la/geofrete";
+  const checkoutUrl = localStorage.getItem("geofrete_admin_checkout_url") || "https://mpago.la/girarota";
 
   if (document.getElementById("adminPixKeyInput")) document.getElementById("adminPixKeyInput").value = pixKey;
   if (document.getElementById("adminPixNameInput")) document.getElementById("adminPixNameInput").value = pixName;
@@ -134,8 +134,8 @@ function loadSettings() {
   if (document.getElementById("externalCheckoutLink")) document.getElementById("externalCheckoutLink").href = checkoutUrl;
 
   // Load Privy & Google Client ID Settings
-  const privyAppId = localStorage.getItem("geofrete_admin_privy_app_id") || "cl_geofrete_demo_2026";
-  const googleClientId = localStorage.getItem("geofrete_admin_google_client_id") || "geofrete-google-client-id";
+  const privyAppId = localStorage.getItem("geofrete_admin_privy_app_id") || "cl_girarota_demo_2026";
+  const googleClientId = localStorage.getItem("geofrete_admin_google_client_id") || "girarota-google-client-id";
   if (document.getElementById("adminPrivyAppIdInput")) document.getElementById("adminPrivyAppIdInput").value = privyAppId;
   if (document.getElementById("adminGoogleClientIdInput")) document.getElementById("adminGoogleClientIdInput").value = googleClientId;
 }
@@ -148,10 +148,10 @@ function saveSettings() {
   localStorage.setItem("geofrete_api_url", apiUrl);
 
   // Save Admin Payment Settings
-  const pixKey = (document.getElementById("adminPixKeyInput")?.value || "suporte@geofrete.com.br").trim();
-  const pixName = (document.getElementById("adminPixNameInput")?.value || "GEOFRETE BRASIL").trim();
+  const pixKey = (document.getElementById("adminPixKeyInput")?.value || "suporte@girarota.com.br").trim();
+  const pixName = (document.getElementById("adminPixNameInput")?.value || "GIRAROTA BRASIL").trim();
   const pixCity = (document.getElementById("adminPixCityInput")?.value || "CAMPO LARGO").trim();
-  const checkoutUrl = (document.getElementById("adminCheckoutUrlInput")?.value || "https://mpago.la/geofrete").trim();
+  const checkoutUrl = (document.getElementById("adminCheckoutUrlInput")?.value || "https://mpago.la/girarota").trim();
 
   localStorage.setItem("geofrete_admin_pix_key", pixKey);
   localStorage.setItem("geofrete_admin_pix_name", pixName);
@@ -160,8 +160,8 @@ function saveSettings() {
   if (document.getElementById("externalCheckoutLink")) document.getElementById("externalCheckoutLink").href = checkoutUrl;
 
   // Save Privy & Google Settings
-  const privyAppId = (document.getElementById("adminPrivyAppIdInput")?.value || "cl_geofrete_demo_2026").trim();
-  const googleClientId = (document.getElementById("adminGoogleClientIdInput")?.value || "geofrete-google-client-id").trim();
+  const privyAppId = (document.getElementById("adminPrivyAppIdInput")?.value || "cl_girarota_demo_2026").trim();
+  const googleClientId = (document.getElementById("adminGoogleClientIdInput")?.value || "girarota-google-client-id").trim();
   localStorage.setItem("geofrete_admin_privy_app_id", privyAppId);
   localStorage.setItem("geofrete_admin_google_client_id", googleClientId);
 
@@ -485,7 +485,7 @@ async function runOptimization() {
   // Free Tier Gatekeeper (10 stops max on Free plan)
   if (currentStops.length > 10 && !SubscriptionManager.isPro()) {
     openSubscriptionModal();
-    showPaymentToast(`⚠️ O plano gratuito permite até 10 paradas. Seu lote possui ${currentStops.length} pacotes. Desbloqueie o GEOFRETE PRO!`);
+    showPaymentToast(`⚠️ O plano gratuito permite até 10 paradas. Seu lote possui ${currentStops.length} pacotes. Desbloqueie o GiraRota PRO!`);
     return;
   }
 
@@ -1507,7 +1507,7 @@ const TrialManager = {
       // 4. Activate 7-Day PRO Access
       SubscriptionManager.activatePro("trial", 7, `TRIAL-${deviceId}`);
 
-      showPaymentToast("🎉 Parabéns! Seus 7 dias grátis de GEOFRETE PRO foram ativados com sucesso!");
+      showPaymentToast("🎉 Parabéns! Seus 7 dias grátis de GiraRota PRO foram ativados com sucesso!");
       closeTrialSignupModal();
       updateSubscriptionUI();
       return true;
@@ -1898,7 +1898,7 @@ function updateSubscriptionUI() {
           "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-black flex items-center space-x-1.5 shadow-sm transition transform active:scale-95 cursor-pointer";
       }
       if (badgeText) {
-        badgeText.textContent = `⭐ GEOFRETE PRO (${days}d)`;
+        badgeText.textContent = `⭐ GiraRota PRO (${days}d)`;
       }
     }
 
@@ -1994,7 +1994,7 @@ function exportRouteGPX() {
     return;
   }
 
-  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="GEOFRETE PRO">\n<rte>\n<name>Rota GEOFRETE - ${new Date().toLocaleDateString()}</name>\n`;
+  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="GiraRota PRO">\n<rte>\n<name>Rota GiraRota - ${new Date().toLocaleDateString()}</name>\n`;
   gpx += `  <rtept lat="${currentOrigin.lat}" lon="${currentOrigin.lng}"><name>Partida</name></rtept>\n`;
   renderedStops.forEach((s) => {
     const cleanName = (s.name || s.address).replace(/[<>&]/g, "");
@@ -2005,7 +2005,7 @@ function exportRouteGPX() {
   const blob = new Blob([gpx], { type: "application/gpx+xml" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `rota_geofrete_${Date.now()}.gpx`;
+  a.download = `rota_girarota_${Date.now()}.gpx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

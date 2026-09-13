@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    PROJECT_NAME: str = "GEOFRETE - Otimizador de Rotas Last-Mile"
+    PROJECT_NAME: str = "GiraRota - Roteirizador Inteligente Last-Mile"
     VERSION: str = "1.0.0"
     API_V1_PREFIX: str = "/api/v1"
     ENVIRONMENT: str = "development"
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # Geocoding Configurations
     GEOCODING_TIMEOUT_SECONDS: int = 5
     GEOCODING_MAX_RETRIES: int = 3
-    GEOCODING_USER_AGENT: str = "GEOFRETE-LastMileDelivery/1.0"
+    GEOCODING_USER_AGENT: str = "GiraRota-LastMileDelivery/1.0"
 
     # CORS
     CORS_ORIGINS: List[str] = ["*"]
