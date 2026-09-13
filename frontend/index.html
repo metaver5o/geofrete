@@ -869,10 +869,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
             <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
             <span>Pix Instantâneo</span>
           </button>
-          <button onclick="switchPaymentTab('card')" id="payTabBtn-card" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white">
-            <i data-lucide="credit-card" class="w-3.5 h-3.5"></i>
-            <span>Cartão / Checkout</span>
-          </button>
           <button onclick="switchPaymentTab('voucher')" id="payTabBtn-voucher" class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white">
             <i data-lucide="key" class="w-3.5 h-3.5"></i>
             <span>Chave / Cupom</span>
@@ -930,21 +926,7 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
           </button>
         </div>
 
-        <!-- TAB 2: CARTÃO / CHECKOUT EXTERNO -->
-        <div id="payTabContent-card" class="hidden space-y-3 text-center py-2">
-          <p class="text-xs text-slate-300">
-            Prefere pagar no <strong>Cartão de Crédito</strong> em até 12x ou com saldo Mercado Pago / Stripe?
-          </p>
-          <a id="externalCheckoutLink" href="https://mpago.la/girarota" target="_blank" rel="noopener noreferrer" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg flex items-center justify-center space-x-2 transition transform active:scale-98">
-            <i data-lucide="external-link" class="w-4 h-4"></i>
-            <span>Ir para Checkout Seguro (Mercado Pago / Stripe)</span>
-          </a>
-          <p class="text-[11px] text-slate-500">
-            Após a confirmação da operadora do cartão, seu acesso é liberado instantaneamente.
-          </p>
-        </div>
-
-        <!-- TAB 3: VOUCHER / CHAVE DE LICENÇA -->
+        <!-- TAB 2: VOUCHER / CHAVE DE LICENÇA -->
         <div id="payTabContent-voucher" class="hidden space-y-3 py-1">
           <div class="space-y-1.5">
             <label class="text-xs font-bold text-slate-300">Insira seu código de ativação ou voucher de transportadora:</label>
@@ -1029,7 +1011,7 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
             <span>Configurações de Pagamento (Recebedor)</span>
           </h4>
           <p class="text-slate-400 text-[11px]">
-            Personalize sua chave Pix e link de checkout para receber os pagamentos dos entregadores na sua conta bancária.
+            Personalize sua chave Pix para receber os pagamentos dos entregadores diretamente na sua conta bancária.
           </p>
           <div class="space-y-1.5 pt-1">
             <label class="font-semibold text-slate-400 text-[11px]">Sua Chave Pix (E-mail, CPF, CNPJ ou Celular):</label>
@@ -1044,10 +1026,6 @@ Rua dos Pinheiros, 400 - Pinheiros, SP" class="w-full bg-slate-950 border border
               <label class="font-semibold text-slate-400 text-[11px]">Cidade:</label>
               <input type="text" id="adminPixCityInput" value="CAMPO LARGO" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono">
             </div>
-          </div>
-          <div class="space-y-1.5 pt-1">
-            <label class="font-semibold text-slate-400 text-[11px]">Link de Checkout do Mercado Pago / Stripe:</label>
-            <input type="text" id="adminCheckoutUrlInput" value="https://mpago.la/girarota" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono" placeholder="https://mpago.la/...">
           </div>
         </div>
 

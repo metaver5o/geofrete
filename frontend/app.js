@@ -125,13 +125,10 @@ function loadSettings() {
   const pixKey = localStorage.getItem("geofrete_admin_pix_key") || "pix@girarota.com";
   const pixName = localStorage.getItem("geofrete_admin_pix_name") || "GIRAROTA BRASIL";
   const pixCity = localStorage.getItem("geofrete_admin_pix_city") || "CAMPO LARGO";
-  const checkoutUrl = localStorage.getItem("geofrete_admin_checkout_url") || "https://mpago.la/girarota";
 
   if (document.getElementById("adminPixKeyInput")) document.getElementById("adminPixKeyInput").value = pixKey;
   if (document.getElementById("adminPixNameInput")) document.getElementById("adminPixNameInput").value = pixName;
   if (document.getElementById("adminPixCityInput")) document.getElementById("adminPixCityInput").value = pixCity;
-  if (document.getElementById("adminCheckoutUrlInput")) document.getElementById("adminCheckoutUrlInput").value = checkoutUrl;
-  if (document.getElementById("externalCheckoutLink")) document.getElementById("externalCheckoutLink").href = checkoutUrl;
 
   // Load Privy & Google Client ID Settings
   const privyAppId = localStorage.getItem("geofrete_admin_privy_app_id") || "cl_girarota_demo_2026";
@@ -151,13 +148,10 @@ function saveSettings() {
   const pixKey = (document.getElementById("adminPixKeyInput")?.value || "pix@girarota.com").trim();
   const pixName = (document.getElementById("adminPixNameInput")?.value || "GIRAROTA BRASIL").trim();
   const pixCity = (document.getElementById("adminPixCityInput")?.value || "CAMPO LARGO").trim();
-  const checkoutUrl = (document.getElementById("adminCheckoutUrlInput")?.value || "https://mpago.la/girarota").trim();
 
   localStorage.setItem("geofrete_admin_pix_key", pixKey);
   localStorage.setItem("geofrete_admin_pix_name", pixName);
   localStorage.setItem("geofrete_admin_pix_city", pixCity);
-  localStorage.setItem("geofrete_admin_checkout_url", checkoutUrl);
-  if (document.getElementById("externalCheckoutLink")) document.getElementById("externalCheckoutLink").href = checkoutUrl;
 
   // Save Privy & Google Settings
   const privyAppId = (document.getElementById("adminPrivyAppIdInput")?.value || "cl_girarota_demo_2026").trim();
@@ -1708,6 +1702,7 @@ function openSubscriptionModal() {
   modal.classList.remove("hidden");
   updateSubscriptionUI();
   selectPlan(currentSelectedPlan || "monthly");
+  switchPaymentTab("pix");
   startPixCountdown();
   if (typeof lucide !== "undefined") lucide.createIcons();
 }
@@ -1764,7 +1759,7 @@ function updatePixPayload() {
 
 function switchPaymentTab(tab) {
   currentPaymentTab = tab;
-  ["pix", "card", "voucher"].forEach((t) => {
+  ["pix", "voucher"].forEach((t) => {
     const btn = document.getElementById(`payTabBtn-${t}`);
     const content = document.getElementById(`payTabContent-${t}`);
     if (t === tab) {
